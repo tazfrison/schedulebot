@@ -23,6 +23,14 @@ Conversation.prototype.listScrims = function()
 
 }
 
-Conversation.prototype.
+Conversation.prototype.schedule = function()
+{
+	
+}
+
+Conversation.prototype.cancel = function()
+{
+	
+}
 
 module.exports = Conversation;

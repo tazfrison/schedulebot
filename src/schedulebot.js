@@ -22,10 +22,6 @@ function ScheduleBot()
 
 ScheduleBot.prototype.init = function()
 {
-	if(fs.existsSync(serverFile))
-	{
-		Steam.servers = JSON.parse(fs.readFileSync(serverFile));
-	}
 	if(fs.existsSync(confFile))
 	{
 		var config = JSON.parse(fs.readFileSync(confFile));
@@ -34,6 +30,10 @@ ScheduleBot.prototype.init = function()
 	{
 		console.log("Config file not found.");
 		process.exit();
+	}
+	if(fs.existsSync(serverFile))
+	{
+		Steam.servers = JSON.parse(fs.readFileSync(serverFile));
 	}
 	this.username = config.username;
 	this.password = config.password;
@@ -64,8 +64,11 @@ ScheduleBot.prototype.setupHandlers = function()
 ScheduleBot.prototype.loggedOn = function()
 {
 	var self = this;
-	this.friends.setPersonaState(Steam.EPersonaState.Online);
-	this.rl.on("line", this.handleCommand.bind(this));
+	this.friends.once("relationships", function()
+	{
+		self.friends.setPersonaState(Steam.EPersonaState.Online);
+		self.rl.on("line", self.handleCommand.bind(self));
+	});
 }
 
 ScheduleBot.prototype.handleCommand = function(command)
@@ -77,6 +80,9 @@ ScheduleBot.prototype.handleCommand = function(command)
 			this.client.disconnect();
 			process.exit();
 			break;
+		case "listfriends":
+			this.listFriends();
+			break;
 	}
 }
 
@@ -85,6 +91,17 @@ ScheduleBot.prototype.getUserName = function(id)
 	return (this.friends.personaStates && id in this.friends.personaStates)
 		? (this.friends.personaStates[id].player_name)
 		: "";
+}
+
+ScheduleBot.prototype.listFriends = function()
+{
+	console.log(this.friends.personaStates);
+}
+
+ScheduleBot.prototype.acceptFriend = function(id)
+{
+	console.log("Accepting friend: " + this.getUserName(id));
+	//this.friends.addFriend(id);
 }
 
 ScheduleBot.prototype.onClientConnect = function()
@@ -128,24 +145,45 @@ ScheduleBot.prototype.onFriendRelationships = function()
 {
 	var self = this;
 	console.log(this.friends.friends);
+	var unknowns = [];
 	Object.keys(this.friends.friends).forEach(function(id)
 	{
 		if(self.friends.friends[id] === Steam.EFriendRelationship.RequestRecipient)
 		{
-			console.log("Accepting friend: " + self.getUserName(id));
-			//self.friends.addFriend(id);
+			if(self.getUserName(id) !== "")
+			{
+				self.acceptFriend(id);
+			}
+			else
+			{
+				console.log("Looking up: " + id);
+				unknowns.push(id);
+			}
 		}
-
 	});
-	return;
-	this.friends.requestFriendData(Object.keys(this.friends.friends), 
-		Steam.EClientPersonaStateFlag.QueryPort |
-		Steam.EClientPersonaStateFlag.SourceID |
-		Steam.EClientPersonaStateFlag.Presence |
-		Steam.EClientPersonaStateFlag.Metadata |
-		Steam.EClientPersonaStateFlag.ClanInfo |
-		Steam.EClientPersonaStateFlag.ClanTag
-	);
+	if(unknowns.length > 0)
+	{
+		var callback = function(state)
+		{
+			var index = unknowns.indexOf(state.friendid);
+			if(index >= 0)
+			{
+				unknowns.splice(index, 1);
+				setTimeout(function()
+				{
+					//Friends persona state updates after this event
+					self.acceptFriend(id);
+				});
+			}
+			if(unknowns.length === 0)
+			{
+				self.friends.removeListener("personaState", callback);
+				
+			}
+		}
+		this.friends.on("personaState", callback);
+		this.friends.requestFriendData(unknowns);
+	}
 }
 
 ScheduleBot.prototype.onFriendPersonaState = function(state)
@@ -155,7 +193,7 @@ ScheduleBot.prototype.onFriendPersonaState = function(state)
 
 ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 {
-	console.log("Received message: '" + message + "' from " + steamId);
+	console.log("Received message: '" + message + "' from " + this.getUserName(steamId));
 	if(!this.conversations[steamId])
 	{
 		var self = this;
