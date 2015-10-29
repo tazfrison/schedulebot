@@ -1,1 +1,5 @@
 #! /usr/bin/nodejs
+
+var ScheduleBot = require("../src/schedulebot.js");
+
+var bot = new ScheduleBot();
