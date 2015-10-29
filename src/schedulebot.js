@@ -12,6 +12,7 @@ function ScheduleBot(datastore)
 	this.client = new Steam.SteamClient();
 	this.friends = new Steam.SteamFriends(this.client);
 	this.user = new Steam.SteamUser(this.client);
+	this.me = false;
 
 	this.setupHandlers();
 
@@ -41,6 +42,7 @@ ScheduleBot.prototype.init = function()
 	});
 
 	this.conversations = {};
+	this.pending = {};
 }
 
 ScheduleBot.prototype.setupHandlers = function()
@@ -69,16 +71,31 @@ ScheduleBot.prototype.loggedOn = function()
 
 ScheduleBot.prototype.handleCommand = function(command)
 {
-	switch(command)
+	if(command === "exit")
 	{
-		case "exit":
-			this.rl.close();
-			this.client.disconnect();
-			process.exit();
-			break;
-		case "listfriends":
-			this.listFriends();
-			break;
+		this.rl.close();
+		this.client.disconnect();
+		process.exit();
+	}
+	else if(command === "listfriends")
+	{
+		this.listFriends();
+	}
+	else if(command.lastIndexOf("acceptfriend", 0) === 0)
+	{
+		var id = command.split(" ", 2)[1];
+		this.friends.addFriend(id);
+	}
+	else if(command.lastIndexOf("get", 0) === 0)
+	{
+		var id = command.split(" ", 2)[1];
+		this.friends.requestFriendData([id], 1);
+	}
+	else if(command.lastIndexOf("message", 0) === 0)
+	{
+		command = command.split(" ", 3);
+		var id = command[1];
+		this.friends.sendMessage(id, command[2], Steam.EChatEntryType.ChatMsg);
 	}
 }
 
@@ -96,7 +113,7 @@ ScheduleBot.prototype.listFriends = function()
 
 ScheduleBot.prototype.acceptFriend = function(id)
 {
-	console.log("Accepting friend: " + this.getUserName(id));
+	console.log("Accepting friend: " + this.getUserName(id) + "(" + id + ")");
 	//this.friends.addFriend(id);
 }
 
@@ -140,63 +157,74 @@ ScheduleBot.prototype.onUserUpdateMachineAuth = function(sentry, callback)
 ScheduleBot.prototype.onFriendRelationships = function()
 {
 	var self = this;
-	console.log(this.friends.friends);
 	var unknowns = [];
 	Object.keys(this.friends.friends).forEach(function(id)
 	{
-		if(self.friends.friends[id] === Steam.EFriendRelationship.RequestRecipient)
-		{
-			if(self.getUserName(id) !== "")
-			{
-				self.acceptFriend(id);
-			}
-			else
-			{
-				console.log("Looking up: " + id);
-				unknowns.push(id);
-			}
-		}
+		self.onFriendFriend(id, self.friends.friends[id]);
 	});
 	if(unknowns.length > 0)
 	{
-		var callback = function(state)
-		{
-			var index = unknowns.indexOf(state.friendid);
-			if(index >= 0)
-			{
-				unknowns.splice(index, 1);
-				setTimeout(function()
-				{
-					//Friends persona state updates after this event
-					self.acceptFriend(state.friendid);
-				});
-			}
-			if(unknowns.length === 0)
-			{
-				self.friends.removeListener("personaState", callback);
-				
-			}
-		}
-		this.friends.on("personaState", callback);
 		this.friends.requestFriendData(unknowns);
+	}
+}
+
+ScheduleBot.prototype.onFriendFriend = function(id, relationship)
+{
+	if(relationship === Steam.EFriendRelationship.RequestRecipient)
+	{
+		if(this.getUserName(id) !== "")
+		{
+			this.acceptFriend(id);
+		}
+		else
+		{
+			var self = this;
+			if(!this.pending[id])
+				this.pending[id] = [];
+			this.pending[id].push(function()
+			{
+				self.acceptFriend(id);
+			});
+			this.friends.requestFriendData([id]);
+		}
 	}
 }
 
 ScheduleBot.prototype.onFriendPersonaState = function(state)
 {
-	//console.log(state);
+	if(this.pending[state.friendid])
+	{
+		while(this.pending[state.friendid].length > 0)
+		{
+			this.pending[state.friendid].pop()();
+		}
+		delete this.pending[state.friendid];
+	}
+	if(this.conversations[state.friendid])
+	{
+		this.conversations[state.friendid].updateState(state);
+	}
+	else if(state.friendid === this.me.friendid)
+	{
+		this.me = state;
+	}
 }
 
 ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 {
 	console.log("Received message: '" + message + "' from " + this.getUserName(steamId));
+	if(message == "")
+		return;
 	if(!this.conversations[steamId])
 	{
 		var self = this;
-		this.conversations[steamId] = new Conversation(steamId, function(message)
-		{
-			self.friends.sendMessage(steamId, message, Steam.EChatEntryType.ChatMsg);
-		});
+		this.conversations[steamId] = new Conversation(
+			this.me,
+			this.friends.personaStates[steamId],
+			this.datastore, function(message)
+			{
+				self.friends.sendMessage(steamId, message, Steam.EChatEntryType.ChatMsg);
+			});
 	}
 	this.conversations[steamId].handleMessage(message);
 }

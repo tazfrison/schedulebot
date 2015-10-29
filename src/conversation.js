@@ -1,12 +1,21 @@
-function Conversation (id, sendMessage)
+function Conversation (me, them, datastore, sendMessage)
 {
-	this.id = id;
+	this.chatid = them.friendid;
+	this.me = me;
+	this.them = them;
+	this.datastore = datastore;
 	this.sendMessage = sendMessage;
 }
 
 Conversation.prototype.handleMessage = function(message)
 {
+	this.datastore.logMessage(this.chatid, this.them.player_name, "", message);
 	this.sendMessage("Responding to: " + message);
+}
+
+Conversation.prototype.updateState = function(state)
+{
+	this.them = state;
 }
 
 Conversation.prototype.printOptions = function()
@@ -30,7 +39,7 @@ Conversation.prototype.schedule = function()
 
 Conversation.prototype.cancel = function()
 {
-	
+
 }
 
 module.exports = Conversation;
