@@ -4,11 +4,9 @@ var crypto = require("crypto");
 var readline = require("readline");
 var Conversation = require("./conversation.js");
 
-var serverFile = "resources/servers";
-var confFile = "resources/login.conf";
-
-function ScheduleBot()
+function ScheduleBot(datastore)
 {
+	this.datastore = datastore;
 	this.init();
 
 	this.client = new Steam.SteamClient();
@@ -22,22 +20,20 @@ function ScheduleBot()
 
 ScheduleBot.prototype.init = function()
 {
-	if(fs.existsSync(confFile))
-	{
-		var config = JSON.parse(fs.readFileSync(confFile));
-	}
-	else
+	var config = this.datastore.getSteamLogin();
+	if(!config)
 	{
 		console.log("Config file not found.");
 		process.exit();
 	}
-	if(fs.existsSync(serverFile))
-	{
-		Steam.servers = JSON.parse(fs.readFileSync(serverFile));
-	}
 	this.username = config.username;
 	this.password = config.password;
-	//this.sentryFile = "resources/bot." + this.username + ".sentry";
+
+	config = this.datastore.getServers();
+	if(!config)
+	{
+		Steam.servers = config;
+	}
 
 	this.rl = readline.createInterface({
 		input: process.stdin,
@@ -115,7 +111,7 @@ ScheduleBot.prototype.onClientConnect = function()
 
 ScheduleBot.prototype.onClientServers = function(servers)
 {
-	fs.writeFile(serverFile, JSON.stringify(servers));
+	this.datastore.setServers(servers);
 }
 
 ScheduleBot.prototype.onClientLogOn = function(response)
@@ -135,7 +131,7 @@ ScheduleBot.prototype.onClientLogOff = function(response)
 
 ScheduleBot.prototype.onUserUpdateMachineAuth = function(sentry, callback)
 {
-	fs.writeFileSync(this.sentryFile, sentry.bytes);
+	this.datastore.setSentry(this.username, sentry.bytes);
 	callback({
 		sha_file: crypto.createHash('sha1').update(sentry.bytes).digest()
 	});
@@ -172,7 +168,7 @@ ScheduleBot.prototype.onFriendRelationships = function()
 				setTimeout(function()
 				{
 					//Friends persona state updates after this event
-					self.acceptFriend(id);
+					self.acceptFriend(state.friendid);
 				});
 			}
 			if(unknowns.length === 0)
@@ -205,4 +201,4 @@ ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 	this.conversations[steamId].handleMessage(message);
 }
 
-var bot = new ScheduleBot();
+module.exports = ScheduleBot;

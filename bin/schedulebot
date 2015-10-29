@@ -1,5 +1,11 @@
-#! /usr/bin/nodejs
+#!/usr/bin/env nodejs
 
-var ScheduleBot = require("../src/schedulebot.js");
+var path = require("path");
+var fs = require("fs");
 
-var bot = new ScheduleBot();
+var srcdir = path.join(path.dirname(fs.realpathSync(__filename)), '../src');
+
+var ScheduleBot = require(path.join(srcdir, "schedulebot.js"));
+var DataStore = require(path.join(srcdir, "datastore.js"));
+
+var bot = new ScheduleBot(new DataStore());
