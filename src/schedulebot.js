@@ -204,7 +204,7 @@ ScheduleBot.prototype.onFriendPersonaState = function(state)
 	{
 		this.conversations[state.friendid].updateState(state);
 	}
-	else if(state.friendid === this.me.friendid)
+	else if(state.friendid === this.client.steamID)
 	{
 		this.me = state;
 	}

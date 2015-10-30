@@ -1,15 +1,21 @@
 function Conversation (me, them, datastore, sendMessage)
 {
+	var self = this;
 	this.chatid = them.friendid;
 	this.me = me;
 	this.them = them;
 	this.datastore = datastore;
-	this.sendMessage = sendMessage;
+	this.log = this.datastore.getLog(this.chatid);
+	this.sendMessage = function(message)
+	{
+		self.log.write(self.me.player_name, message);
+		sendMessage(message);
+	};
 }
 
 Conversation.prototype.handleMessage = function(message)
 {
-	this.datastore.logMessage(this.chatid, this.them.player_name, "", message);
+	this.log.write(this.them.player_name, message);
 	this.sendMessage("Responding to: " + message);
 }
 
