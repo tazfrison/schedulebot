@@ -183,7 +183,10 @@ ScheduleBot.prototype.onFriendFriend = function(id, relationship)
 				this.pending[id] = [];
 			this.pending[id].push(function()
 			{
-				self.acceptFriend(id);
+				setTimeout(function()
+				{
+					self.acceptFriend(id);
+				});
 			});
 			this.friends.requestFriendData([id]);
 		}
