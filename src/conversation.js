@@ -1,3 +1,6 @@
+var util = require("util");
+var EventEmitter = require("events");
+
 function Conversation (me, them, datastore, sendMessage)
 {
 	var self = this;
@@ -11,7 +14,10 @@ function Conversation (me, them, datastore, sendMessage)
 		self.log.write(self.me.player_name, message);
 		sendMessage(message);
 	};
+	EventEmitter.call(this);
 }
+
+util.inherits(Conversation, EventEmitter);
 
 Conversation.prototype.handleMessage = function(message)
 {

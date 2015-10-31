@@ -6,6 +6,7 @@ var logs = path.join(resources, 'logs');
 function Datastore ()
 {
 	this.logfiles = {};
+	this.teamdata = new TeamData();
 }
 
 Datastore.prototype.getSteamLogin = function()
@@ -62,11 +63,11 @@ Datastore.prototype.getSchedule = function()
 Datastore.prototype.getLog = function(id)
 {
 	if(!this.logfiles[id])
-		this.logfiles[id] = new Datastore.log(id);
+		this.logfiles[id] = new Log(id);
 	return this.logfiles[id];
 }
 
-Datastore.log = function(id)
+function Log(id)
 {
 	this.path = path.join(logs, id + ".log");
 
@@ -105,11 +106,156 @@ function getTimeString()
 	return output;
 }
 
-Datastore.log.prototype.write = function(name, message)
+Log.prototype.write = function(name, message)
 {
 	var output = "[" + getTimeString() + "] " + name + ": " + message + "\n";
 
 	fs.appendFile(this.path, output);
+}
+
+function TeamData()
+{
+	this.teams = [];
+	this.players = {};
+	this.admins = [];
+	this.ownTeam;
+	this.load();
+}
+
+TeamData.prototype.getPlayer = function(id)
+{
+	return this.players[id] || false;
+}
+
+TeamData.prototype.getOwnPlayers = function()
+{
+	return this.ownTeam.roster;
+}
+
+TeamData.prototype.isAdmin = function(id)
+{
+	return this.admins.indexOf(this.players[id]) > -1;
+}
+
+TeamData.prototype.load = function()
+{
+	var self = this;
+
+	var confPath = path.join(resources, "data.conf");
+	var data;
+	var keys;
+	try
+	{
+		fs.accessSync(confPath, fs.R_OK, fs.W_OK);
+		data = JSON.parse(fs.readFileSync(confPath));
+	}
+	catch(e)
+	{
+		return false;
+	}
+	keys = Object.keys(data.players);
+	keys.forEach(function(key)
+	{
+		self.players[key] = new TeamData.Player(key, data.players[key]);
+		if(self.players[key].admin)
+			self.admins.push(self.players[key]);
+	});
+
+	data.teams.forEach(function(team)
+	{
+		self.teams.push(new TeamData.Team(team, self.players));
+		if(team.primary)
+			self.ownTeam = self.teams[self.teams.length - 1];
+	})
+}
+
+TeamData.prototype.save = function()
+{
+	var data = this.toString();
+	var confPath = path.join(resources, "data.conf");
+	fs.writeFile(confPath, data);
+}
+
+TeamData.prototype.toString = function()
+{
+	var output = {
+		players: this.players,
+		teams: this.teams
+	}
+
+	return JSON.stringify(output);
+}
+
+TeamData.Team = function(data, players)
+{
+	var self = this;
+
+	this.name = data.name;
+	this.primary = data.primary || false;
+	this.roster = [];
+	this.schedulers = [];
+
+	data.roster.forEach(function(id)
+	{
+		players[id].addAsPlayer(self);
+	});
+	data.schedulers.forEach(function(id)
+	{
+		players[id].addAsScheduler(self);
+	});
+}
+
+TeamData.Team.prototype.toString = function()
+{
+	var output = {
+		name: this.name,
+		roster: [],
+		schedulers: []
+	};
+	if(this.primary)
+		output.primary = true;
+	this.roster.forEach(function(player)
+	{
+		output.roster.push(player.id);
+	});
+	this.schedulers.forEach(function(player)
+	{
+		output.schedulers.push(player.id);
+	});
+
+	return JSON.stringify(output);
+}
+
+TeamData.Player = function(id, data)
+{
+	this.name = data.name;
+	this.id = id;
+	this.admin = data.admin || false;
+	this.playsOn = [];
+	this.schedulesFor = [];
+}
+
+TeamData.Player.prototype.addAsPlayer = function(team)
+{
+	this.playsOn.push(team);
+	team.roster.push(this);
+}
+
+TeamData.Player.prototype.addAsScheduler = function(team)
+{
+	this.schedulesFor.push(team);
+	team.schedulers.push(this);
+}
+
+TeamData.Player.prototype.toString = function()
+{
+	var output = {
+		name: this.name
+	};
+	if(this.admin)
+		output.admin = true;
+
+	return JSON.stringify(output);
 }
 
 module.exports = Datastore;

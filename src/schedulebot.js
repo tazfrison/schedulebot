@@ -93,9 +93,9 @@ ScheduleBot.prototype.handleCommand = function(command)
 	}
 	else if(command.lastIndexOf("message", 0) === 0)
 	{
-		command = command.split(" ", 3);
+		command = command.split(" ");
 		var id = command[1];
-		this.friends.sendMessage(id, command[2], Steam.EChatEntryType.ChatMsg);
+		this.friends.sendMessage(id, command.slice(2).join(" "), Steam.EChatEntryType.ChatMsg);
 	}
 }
 
@@ -113,8 +113,15 @@ ScheduleBot.prototype.listFriends = function()
 
 ScheduleBot.prototype.acceptFriend = function(id)
 {
-	console.log("Accepting friend: " + this.getUserName(id) + "(" + id + ")");
-	//this.friends.addFriend(id);
+	if(this.datastore.teamdata.getPlayer(id))
+	{
+		console.log("Accepting friend: " + this.getUserName(id) + "(" + id + ")");
+		this.friends.addFriend(id);
+	}
+	else
+	{
+		console.log("Player not in config: " + this.getUserName(id) + "(" + id + ")");
+	}
 }
 
 ScheduleBot.prototype.onClientConnect = function()
