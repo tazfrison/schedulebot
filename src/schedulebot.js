@@ -110,6 +110,10 @@ ScheduleBot.prototype.handleCommand = function(command)
 	{
 		this.datastore.calendar.listEvents();
 	}
+	else if(command === "addevent")
+	{
+		this.datastore.calendar.createEvent();
+	}
 }
 
 ScheduleBot.prototype.getUserName = function(id)

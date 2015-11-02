@@ -14,7 +14,7 @@ var CLIENT_AUTH = path.join(TOKEN_DIR, "client_secret.json");
 
 function Calendar()
 {
-	
+	this.calendar = google.calendar("v3");
 }
 
 Calendar.prototype.init = function()
@@ -47,8 +47,7 @@ Calendar.prototype.init = function()
  */
 Calendar.prototype.listEvents = function()
 {
-	var calendar = google.calendar('v3');
-	calendar.events.list({
+	this.calendar.events.list({
 		auth: this.auth,
 		calendarId: 'primary',
 		timeMin: (new Date()).toISOString(),
@@ -78,6 +77,40 @@ Calendar.prototype.listEvents = function()
 			}
 		}
 	});
+}
+
+Calendar.prototype.createEvent = function()
+{
+	var self = this;
+	var event = {
+		"summary": "Test event",
+		"start":
+		{
+			"dateTime": "2015-11-28T09:00:00-07:00",
+			"timeZone": "America/Los_Angeles",
+		},
+		"end":
+		{
+			"dateTime": "2015-11-28T17:00:00-07:00",
+			"timeZone": "America/Los_Angeles",
+		}
+	};
+	return new Promise(function(resolve, reject)
+	{
+		self.calendar.events.insert({
+			auth: self.auth,
+			calendarId: "primary",
+			resource: event
+		}, function(err, event)
+		{
+			if(err)
+			{
+				reject(err);
+			}
+			else
+				resolve(event);
+		});
+	})
 }
 
 /**
