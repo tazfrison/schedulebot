@@ -1,12 +1,23 @@
 var fs = require("fs");
 var path = require("path");
-var resources = path.join(path.dirname(fs.realpathSync(__filename)), '../resources');
-var logs = path.join(resources, 'logs');
+var Promise = require("promise");
+
+var Calendar = require("./calendar.js");
+
+var resources = path.join(path.dirname(fs.realpathSync(__filename)), "../resources");
+var logs = path.join(resources, "logs");
 
 function Datastore ()
 {
 	this.logfiles = {};
 	this.teamdata = new TeamData();
+	this.calendar = new Calendar();
+}
+
+Datastore.prototype.init = function()
+{
+	var self = this;
+	return Promise.all([self.teamdata.init(), self.calendar.init()]);
 }
 
 Datastore.prototype.getSteamLogin = function()
@@ -119,7 +130,39 @@ function TeamData()
 	this.players = {};
 	this.admins = [];
 	this.ownTeam;
-	this.load();
+}
+
+TeamData.prototype.init = function()
+{
+	var self = this;
+
+	var confPath = path.join(resources, "data.conf");
+	var data;
+	var keys;
+	try
+	{
+		fs.accessSync(confPath, fs.R_OK, fs.W_OK);
+		data = JSON.parse(fs.readFileSync(confPath));
+	}
+	catch(e)
+	{
+		return Promise.reject(false);
+	}
+	keys = Object.keys(data.players);
+	keys.forEach(function(key)
+	{
+		self.players[key] = new TeamData.Player(key, data.players[key]);
+		if(self.players[key].admin)
+			self.admins.push(self.players[key]);
+	});
+
+	data.teams.forEach(function(team)
+	{
+		self.teams.push(new TeamData.Team(team, self.players));
+		if(team.primary)
+			self.ownTeam = self.teams[self.teams.length - 1];
+	});
+	return Promise.resolve(true);
 }
 
 TeamData.prototype.getPlayer = function(id)
@@ -166,7 +209,7 @@ TeamData.prototype.load = function()
 		self.teams.push(new TeamData.Team(team, self.players));
 		if(team.primary)
 			self.ownTeam = self.teams[self.teams.length - 1];
-	})
+	});
 }
 
 TeamData.prototype.save = function()

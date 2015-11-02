@@ -6,17 +6,17 @@ var Conversation = require("./conversation.js");
 
 function ScheduleBot(datastore)
 {
+	var self = this;
 	this.datastore = datastore;
-	this.init();
 
-	this.client = new Steam.SteamClient();
-	this.friends = new Steam.SteamFriends(this.client);
-	this.user = new Steam.SteamUser(this.client);
-	this.me = false;
-
-	this.setupHandlers();
-
-	this.client.connect();
+	this.datastore.init().then(function()
+	{
+		self.init();
+	},
+	function(err)
+	{
+		console.log("ScheduleBot failed to initialize: " + err);
+	});
 }
 
 ScheduleBot.prototype.init = function()
@@ -43,6 +43,15 @@ ScheduleBot.prototype.init = function()
 
 	this.conversations = {};
 	this.pending = {};
+
+	this.client = new Steam.SteamClient();
+	this.friends = new Steam.SteamFriends(this.client);
+	this.user = new Steam.SteamUser(this.client);
+	this.me = false;
+
+	this.setupHandlers();
+
+	this.client.connect();
 }
 
 ScheduleBot.prototype.setupHandlers = function()
@@ -96,6 +105,10 @@ ScheduleBot.prototype.handleCommand = function(command)
 		command = command.split(" ");
 		var id = command[1];
 		this.friends.sendMessage(id, command.slice(2).join(" "), Steam.EChatEntryType.ChatMsg);
+	}
+	else if(command === "listevents")
+	{
+		this.datastore.calendar.listEvents();
 	}
 }
 
