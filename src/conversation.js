@@ -3,21 +3,23 @@ var EventEmitter = require("events");
 
 var moment = require("moment");
 
-function Conversation (me, them, datastore, sendMessage)
+function Conversation (id, datastore, sendMessage)
 {
 	var self = this;
-	this.chatid = them.friendid;
-	this.me = me;
-	this.them = them;
+	this.player = datastore.teamdata.getPlayer(id);
+	this.chatid = id;
 	this.datastore = datastore;
 	this.log = this.datastore.getLog(this.chatid);
-	this.sendMessage = function(message)
-	{
-		self.log.write(self.me.player_name, message);
-		sendMessage(message);
-	};
 
-	this.handler = this.printOptions.bind(this);
+	this.sendMessage = sendMessage;
+
+	this.commands = {
+		"commands": function()
+		{
+			self.sendMessage("Available commands:\n!" + Object.keys(self.commands).join("\n!"));
+		},
+		"whoami": this.whoami.bind(this)
+	};
 
 	EventEmitter.call(this);
 }
@@ -26,79 +28,48 @@ util.inherits(Conversation, EventEmitter);
 
 Conversation.prototype.handleMessage = function(message)
 {
-	this.log.write(this.them.player_name, message);
-	this.handler(message);
+	if(message[0] === "!")
+		this.handleCommand(message);
+	else
+		this.handler(message);
 }
 
-Conversation.prototype.updateState = function(state)
+Conversation.prototype.handleCommand = function(message)
 {
-	this.them = state;
-}
-
-Conversation.prototype.printOptions = function()
-{
-	var self = this;
-	this.sendMessage("\n\
-1: List currently scheduled scrims.\n\
-2: Schedule a new scrim.\n\
-3: Reschedule an existing scrim.\n\
-4: Cancel a scrim.");
-	this.handler = function(message)
+	var input = message.split(" ", 1)[0].slice(1);
+	if(typeof this.commands[input] === "function")
+		this.commands[input](message);
+	else
 	{
-		switch(message)
-		{
-			case "1":
-				self.listScrims();
-				break;
-			case "2":
-				self.schedule();
-				break;
-			case "3":
-				self.reschedule();
-			case "4":
-				self.cancel();
-				break;
-			default:
-				self.sendMessage("Option '" + message + "' not recognized.  Please choose from the list.");
-				break;
-		}
+		this.sendMessage(input + " is not a recognized command.");
+	}
+}
+
+Conversation.prototype.whoami = function()
+{
+	var message = "Your name is " + this.player.name + ".  ";
+	var teamMap = function(team)
+	{
+		return "'" + team.name + "'";
 	};
-}
-
-Conversation.prototype.listScrims = function()
-{
-	console.log("List");
-	var self = this;
-	this.datastore.calendar.getEvents().then(function(events)
+	if(this.player.admin)
+		message += "You are an admin.  ";
+	if(this.player.schedulesFor.length > 0)
 	{
-		var output = "Upcoming scrims:\n" + events.map(function(event)
-		{
-			return friendlyEvent(event);
-		}).join("\n");
-		self.sendMessage(output);
-	},
-	function(err)
+		message += "You schedule for the team"
+			+ ( this.player.schedulesFor.length !== 1 ? "s " : " ")
+			+ this.player.schedulesFor.map(teamMap).join(", ") + ".  ";
+	}
+	if(this.player.playsOn.length > 0)
 	{
-		console.log(err);
-	});
+		message += "You play on the team"
+			+ ( this.player.playsOn.length !== 1 ? "s " : " ")
+			+ this.player.playsOn.map(teamMap).join(", ") + ".  ";
+	}
+	this.sendMessage(message);
 }
 
-Conversation.prototype.schedule = function()
-{
-	console.log("Schedule");
-}
-
-Conversation.prototype.reschedule = function()
-{
-	console.log("Reschedule");
-}
-
-Conversation.prototype.cancel = function()
-{
-	console.log("Cancel");
-}
-
-function friendlyEvent(event)
+Conversation.friendlyEvent = function(event)
 {
 	return event.start.format("M-D H:mm - ") + event.summary;
 }

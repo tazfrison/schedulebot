@@ -2,7 +2,9 @@ var Steam = require("steam");
 var fs = require("fs");
 var crypto = require("crypto");
 var readline = require("readline");
-var Conversation = require("./conversation.js");
+var PlayerConversation = require("./player_conversation.js");
+var SchedulerConversation = require("./scheduler_conversation.js");
+var AdminConversation = require("./admin_conversation.js");
 
 function ScheduleBot(datastore)
 {
@@ -233,11 +235,7 @@ ScheduleBot.prototype.onFriendPersonaState = function(state)
 		}
 		delete this.pending[state.friendid];
 	}
-	if(this.conversations[state.friendid])
-	{
-		this.conversations[state.friendid].updateState(state);
-	}
-	else if(state.friendid === this.client.steamID)
+	if(state.friendid === this.client.steamID)
 	{
 		this.me = state;
 	}
@@ -248,17 +246,38 @@ ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 	console.log("Received message: '" + message + "' from " + this.getUserName(steamId));
 	if(message == "")
 		return;
+	var log = this.datastore.getLog(steamId);
 	if(!this.conversations[steamId])
 	{
 		var self = this;
-		this.conversations[steamId] = new Conversation(
-			this.me,
-			this.friends.personaStates[steamId],
-			this.datastore, function(message)
-			{
-				self.friends.sendMessage(steamId, message, Steam.EChatEntryType.ChatMsg);
-			});
+		var player = this.datastore.teamdata.getPlayer(steamId);
+		var conversationType = false;
+		if(player)
+		{
+			if(player.admin)
+				conversationType = AdminConversation;
+			else if(player.schedulesFor.length > 0)
+				conversationType = SchedulerConversation;
+			else if(player.playsOn.length > 0)
+				conversationType = PlayerConversation;
+		}
+		if(conversationType === false)
+		{
+			var message = "You are unregistered with this bot.  Please contact an admin or your team's scheduler to be added to the bot.";
+			log.write(this.me.player_name, message);
+			this.friends.sendMessage(steamId, message, Steam.EChatEntryType.ChatMsg);
+		}
+		else
+		{
+			this.conversations[steamId] = new conversationType(
+				steamId, this.datastore, function(message)
+				{
+					log.write(self.me.player_name, message);
+					self.friends.sendMessage(steamId, message, Steam.EChatEntryType.ChatMsg);
+				});
+		}
 	}
+	log.write(this.friends.personaStates[steamId].player_name, message);
 	this.conversations[steamId].handleMessage(message);
 }
 
