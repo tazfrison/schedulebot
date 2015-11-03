@@ -16,8 +16,7 @@ function Datastore ()
 
 Datastore.prototype.init = function()
 {
-	var self = this;
-	return Promise.all([self.teamdata.init(), self.calendar.init()]);
+	return Promise.all([this.teamdata.init(), this.calendar.init()]);
 }
 
 Datastore.prototype.getSteamLogin = function()
@@ -235,6 +234,7 @@ TeamData.Team = function(data, players)
 
 	this.name = data.name;
 	this.primary = data.primary || false;
+	this.calendarId = data.calendarId;
 	this.roster = [];
 	this.schedulers = [];
 
@@ -252,6 +252,7 @@ TeamData.Team.prototype.toString = function()
 {
 	var output = {
 		name: this.name,
+		calendarId: this.calendarId,
 		roster: [],
 		schedulers: []
 	};

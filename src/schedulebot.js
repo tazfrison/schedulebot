@@ -80,6 +80,7 @@ ScheduleBot.prototype.loggedOn = function()
 
 ScheduleBot.prototype.handleCommand = function(command)
 {
+	var self = this;
 	if(command === "exit")
 	{
 		this.rl.close();
@@ -95,11 +96,6 @@ ScheduleBot.prototype.handleCommand = function(command)
 		var id = command.split(" ", 2)[1];
 		this.friends.addFriend(id);
 	}
-	else if(command.lastIndexOf("get", 0) === 0)
-	{
-		var id = command.split(" ", 2)[1];
-		this.friends.requestFriendData([id], 1);
-	}
 	else if(command.lastIndexOf("message", 0) === 0)
 	{
 		command = command.split(" ");
@@ -113,6 +109,16 @@ ScheduleBot.prototype.handleCommand = function(command)
 	else if(command === "addevent")
 	{
 		this.datastore.calendar.createEvent();
+	}
+	else if(command === "getcalendars")
+	{
+		this.datastore.calendar.getCalendars().then(function(calendars)
+		{
+			calendars.forEach(function(calendar)
+			{
+				console.log(calendar.summary + " " + calendar.id + "\n");
+			});
+		});
 	}
 }
 

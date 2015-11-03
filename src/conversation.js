@@ -71,18 +71,11 @@ Conversation.prototype.listScrims = function()
 	var self = this;
 	this.datastore.calendar.getEvents().then(function(events)
 	{
-		try
+		var output = "Upcoming scrims:\n" + events.map(function(event)
 		{
-			var output = "Upcoming scrims:\n" + events.map(function(event)
-			{
-				return friendlyEvent(event);
-			}).join("\n");
-			self.sendMessage(output);
-		}
-		catch(e)
-		{
-			console.log(e);
-		}
+			return friendlyEvent(event);
+		}).join("\n");
+		self.sendMessage(output);
 	},
 	function(err)
 	{

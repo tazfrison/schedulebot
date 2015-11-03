@@ -41,16 +41,35 @@ Calendar.prototype.init = function()
 	});
 }
 
+Calendar.prototype.getCalendars = function()
+{
+	var self = this;
+	return new Promise(function(resolve, reject)
+	{
+		self.calendar.calendarList.list({
+			auth: self.auth
+		}, function(err, response)
+		{
+			if(err)
+			{
+				reject(err);
+				return;
+			}
+			resolve(response.items);
+		});
+	});
+}
+
 /**
  * Lists the next 10 events on the user's primary calendar.
  *
  * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
  */
-Calendar.prototype.listEvents = function()
+Calendar.prototype.listEvents = function(calendarId)
 {
 	this.calendar.events.list({
 		auth: this.auth,
-		calendarId: 'primary',
+		calendarId: calendarId || 'primary',
 		timeMin: (new Date()).toISOString(),
 		maxResults: 10,
 		singleEvents: true,
@@ -80,14 +99,14 @@ Calendar.prototype.listEvents = function()
 	});
 }
 
-Calendar.prototype.getEvents = function()
+Calendar.prototype.getEvents = function(calendarId)
 {
 	var self = this;
 	return new Promise(function(resolve, reject)
 	{
 		self.calendar.events.list({
 			auth: self.auth,
-			calendarId: 'primary',
+			calendarId: calendarId || 'primary',
 			timeMin: (new Date()).toISOString(),
 			maxResults: 10,
 			singleEvents: true,
