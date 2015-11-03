@@ -2,6 +2,7 @@ var fs = require("fs");
 var path = require("path");
 var readline = require("readline");
 
+var moment = require("moment");
 var Promise = require("promise");
 var google = require("googleapis");
 var googleAuth = require("google-auth-library");
@@ -79,6 +80,33 @@ Calendar.prototype.listEvents = function()
 	});
 }
 
+Calendar.prototype.getEvents = function()
+{
+	var self = this;
+	return new Promise(function(resolve, reject)
+	{
+		self.calendar.events.list({
+			auth: self.auth,
+			calendarId: 'primary',
+			timeMin: (new Date()).toISOString(),
+			maxResults: 10,
+			singleEvents: true,
+			orderBy: 'startTime'
+		}, function(err, response)
+		{
+			if (err)
+			{
+				reject(err);
+				return;
+			}
+			resolve(response.items.map(function(event)
+			{
+				return new Calendar.Event(event);
+			}));
+		});
+	});
+}
+
 Calendar.prototype.createEvent = function()
 {
 	var self = this;
@@ -111,6 +139,32 @@ Calendar.prototype.createEvent = function()
 				resolve(event);
 		});
 	})
+}
+
+Calendar.Event = function(event)
+{
+	this.id = event.id || false;
+	this.summary = event.summary;
+	this.location = event.location || false;
+	this.start = moment(event.start.dateTime || event.start.date);
+}
+
+Calendar.Event.prototype.toString = function()
+{
+	var data = {
+		"summary": this.summary,
+		"start": {
+			"dateTime": this.start.format()
+		},
+		"end": {
+		}
+	};
+
+	if(this.id)
+		data.id = this.id;
+	if(this.location)
+		data.location = this.location;
+	return JSON.stringify(data);
 }
 
 /**
