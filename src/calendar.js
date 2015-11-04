@@ -126,34 +126,20 @@ Calendar.prototype.getEvents = function(calendarId)
 	});
 }
 
-Calendar.prototype.createEvent = function()
+Calendar.prototype.createEvent = function(event, calendarId)
 {
 	var self = this;
-	var event = {
-		"summary": "Test event",
-		"start":
-		{
-			"dateTime": "2015-11-28T09:00:00-07:00",
-			"timeZone": "America/Los_Angeles",
-		},
-		"end":
-		{
-			"dateTime": "2015-11-28T17:00:00-07:00",
-			"timeZone": "America/Los_Angeles",
-		}
-	};
+
 	return new Promise(function(resolve, reject)
 	{
 		self.calendar.events.insert({
 			auth: self.auth,
-			calendarId: "primary",
-			resource: event
+			calendarId: calendarId || "primary",
+			resource: event.objectify()
 		}, function(err, event)
 		{
 			if(err)
-			{
 				reject(err);
-			}
 			else
 				resolve(event);
 		});
@@ -168,14 +154,17 @@ Calendar.Event = function(event)
 	this.start = moment(event.start.dateTime || event.start.date);
 }
 
-Calendar.Event.prototype.toString = function()
+Calendar.Event.prototype.objectify = function()
 {
 	var data = {
 		"summary": this.summary,
 		"start": {
-			"dateTime": this.start.format()
+			"dateTime": this.start.format(),
+			"timeZone": "America/Los_Angeles"
 		},
 		"end": {
+			"dateTime": this.start.add(30, "minutes").format(),
+			"timeZone": "America/Los_Angeles"
 		}
 	};
 
@@ -183,7 +172,12 @@ Calendar.Event.prototype.toString = function()
 		data.id = this.id;
 	if(this.location)
 		data.location = this.location;
-	return JSON.stringify(data);
+	return data;
+}
+
+Calendar.Event.prototype.toString = function()
+{
+	return JSON.stringify(this.objectify());
 }
 
 /**

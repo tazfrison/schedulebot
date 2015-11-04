@@ -1,11 +1,17 @@
 var util = require("util");
 
+var moment = require("moment");
+
 var Conversation = require("./conversation.js");
+var Event = require("./calendar.js").Event;
 
 function AdminConversation()
 {
+	var self = this;
 	Conversation.apply(this, arguments);
 	this.handler = this.mainmenu.bind(this);
+
+	this.commands.cancel = function(){self.mainmenu()};
 }
 
 util.inherits(AdminConversation, Conversation);
@@ -46,6 +52,7 @@ AdminConversation.prototype.listScrims = function()
 			return Conversation.friendlyEvent(event);
 		}).join("\n");
 		self.sendMessage(output);
+		self.mainmenu();
 	},
 	function(err)
 	{
@@ -55,6 +62,86 @@ AdminConversation.prototype.listScrims = function()
 
 AdminConversation.prototype.schedule = function()
 {
+	var self = this;
+	var teams = this.datastore.teamdata.teams.slice();
+	var team;
+	var date;
+	var time;
+
+	var getDate = function(message)
+	{
+		var input = message * 1;
+		if(!isNaN(input) && input > 0 && input <= teams.length)
+		{
+			team = teams[input - 1];
+			self.handler = getTime;
+			self.sendMessage("What date do you want to schedule for? (M/D): ");
+		}
+		else
+		{
+			self.sendMessage(input + " is invalid.  " + output);
+		}
+	};
+
+	var getTime = function(message)
+	{
+		date = message;
+		self.handler = chooseServer;
+		self.sendMessage("What time on " + moment(date, "M/D").format("dddd, MMM Do") + "? (H:MM): ");
+	};
+	var chooseServer = function(message)
+	{
+		time = moment(date + "T" + message, "M/D H:mm");
+		self.handler = getServer;
+		self.sendMessage("What server?\n\
+1: Ours ()\n\
+2: Yours ()\n\
+3: Other\n\
+4: Skip for now");
+	};
+	var getServer = function(message)
+	{
+		switch(message.charAt(0))
+		{
+			case "1":
+				break;
+			case "2":
+				break;
+			case "3":
+				break;
+			case "4":
+				break;
+			default:
+				break;
+		}
+
+		var event = new Event({
+			summary: "Scrim vs " + team.name,
+			start:{
+				dateTime: time.format()
+			}
+		});
+		self.datastore.calendar.createEvent(event, team.calendarId).then(function(event)
+		{
+			console.log("Event added");
+			self.mainmenu();
+		}, function(err)
+		{
+			console.log("Event failed: " + err + "\n" + event);
+			self.mainmenu();
+		});
+	};
+
+	this.handler = getDate;
+	var counter = 1;
+	var output = "What team is this scrim against?\n";
+
+	output += teams.map(function(team)
+	{
+		return counter++ + ": " + team.name;
+	}).join("\n");
+	this.sendMessage(output);
+	
 	//What day
 		//Reject if no openings
 	//What time
