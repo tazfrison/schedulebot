@@ -41,7 +41,13 @@ SchedulerConversation.prototype.listScrims = function()
 {
 	//List for each team they play or schedule for
 	var self = this;
-	this.datastore.calendar.getEvents().then(function(events)
+	var ids = [];
+	if(!this.playsOnPrimary && !this.schedulesForPrimary)
+	{
+		ids.concat(this.player.playsOn.map(function(team){return team.calendarId;}));
+		ids.concat(this.player.schedulesFor.map(function(team){return team.calendarId;}));
+	}
+	this.datastore.getEvents(ids).then(function(events)
 	{
 		var output = "Upcoming scrims:\n" + events.map(function(event)
 		{

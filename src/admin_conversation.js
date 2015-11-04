@@ -45,7 +45,7 @@ AdminConversation.prototype.mainmenu = function()
 AdminConversation.prototype.listScrims = function()
 {
 	var self = this;
-	this.datastore.calendar.getEvents().then(function(events)
+	this.datastore.getEvents().then(function(events)
 	{
 		var output = "Upcoming scrims:\n" + events.map(function(event)
 		{

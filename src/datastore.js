@@ -65,9 +65,39 @@ Datastore.prototype.setSentry = function(username, sentry)
 	fs.writeFileSync(sentryPath, sentry);
 }
 
-Datastore.prototype.getSchedule = function()
+Datastore.prototype.getEvents = function(ids)
 {
-
+	var self = this;
+	if(!ids || !util.isArray(ids) || ids.length === 0)
+	{
+		//Get all events
+		ids = this.teamdata.teams.map(function(team)
+		{
+			return team.calendarId;
+		});
+	}
+	return new Promise(function(resolve, reject)
+	{
+		Promise.all(ids.map(function(id)
+		{
+			return self.calendar.getEvents(id);
+		})).then(function(eventsArr)
+		{
+			var temp = [].concat.apply([], eventsArr);
+			console.log(temp);
+			temp = temp.sort(function(a, b)
+				{
+					if(a.start.isBefore(b.start))
+						return -1;
+					else if(a.start.isSame(b.start))
+						return 0;
+					else
+						return 1;
+				});
+			console.log(temp);
+			resolve(temp);
+		}, reject);
+	});
 }
 
 Datastore.prototype.getLog = function(id)

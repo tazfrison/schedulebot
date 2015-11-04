@@ -21,6 +21,25 @@ function Conversation (id, datastore, sendMessage)
 		"whoami": this.whoami.bind(this)
 	};
 
+	this.playsOnPrimary = false;
+	this.player.playsOn.every(function(team)
+	{
+		if(team.primary)
+		{
+			self.playsOnPrimary = true;
+			return false;
+		}
+	});
+	this.schedulesForPrimary = false;
+	this.player.schedulesFor.every(function(team)
+	{
+		if(team.primary)
+		{
+			self.schedulesForPrimary = true;
+			return false;
+		}
+	});
+
 	EventEmitter.call(this);
 }
 

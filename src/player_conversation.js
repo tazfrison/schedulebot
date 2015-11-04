@@ -33,7 +33,12 @@ PlayerConversation.prototype.listScrims = function()
 {
 	//List scrims for each team they're a player on
 	var self = this;
-	this.datastore.calendar.getEvents().then(function(events)
+	var ids = [];
+	if(!this.playsOnPrimary)
+	{
+		ids = this.player.playsOn.map(function(team){return team.calendarId;});
+	}
+	this.datastore.getEvents(ids).then(function(events)
 	{
 		var output = "Upcoming scrims:\n" + events.map(function(event)
 		{
