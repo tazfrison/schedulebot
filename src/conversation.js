@@ -16,7 +16,7 @@ function Conversation (id, datastore, sendMessage)
 			self.sendMessage("Available commands:\n\t!" + Object.keys(self.commands).join("\n\t!"));
 		},
 		"whoami": this.whoami.bind(this),
-		"cancel": function(){self.mainmenu()}
+		"cancel": function(){self.state = {}; self.mainmenu();}
 	};
 
 	this.playsOnPrimary = false;
@@ -38,12 +38,15 @@ function Conversation (id, datastore, sendMessage)
 		}
 	});
 
+	this.state = {};
+
 	this.handler = this.mainmenu.bind(this);
 }
 
 Conversation.prototype.mainmenu = function()
 {
 	var self = this;
+
 	var counter = 1;
 	var output = "\n" + this.menuOptions
 		.map(function(option){return "\t" + counter++ + ": " + option.label;})
@@ -103,7 +106,7 @@ Conversation.prototype.whoami = function()
 	this.sendMessage(message);
 }
 
-Conversation.friendlyEvent = function(event)
+Conversation.prototype.friendlyEvent = function(event)
 {
 	return event.start.format("M-D H:mm - ") + event.summary;
 }

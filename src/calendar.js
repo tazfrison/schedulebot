@@ -202,11 +202,15 @@ Calendar.Event = function(calendarId, event)
 
 Calendar.Event.prototype.setDate = function(date)
 {
-	this.start.set({"month": date.month(), "day": date.day(), "year": date.year()});
+	if(!this.start)
+		this.start = moment();
+	this.start.set({"month": date.month(), "date": date.date(), "year": date.year()});
 }
 
 Calendar.Event.prototype.setTime = function(time)
 {
+	if(!this.start)
+		this.start = moment();
 	this.start.set({"hour": time.hour(), "minute": time.minute(), "second": time.second()});
 }
 

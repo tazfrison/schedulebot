@@ -27,8 +27,9 @@ PlayerConversation.prototype.listScrims = function()
 	var self = this;
 	this.getEvents().then(function(events)
 	{
-		var output = "Upcoming scrims:\n\t" + events.map(Conversation.friendlyEvent).join("\n\t");
+		var output = "Upcoming scrims:\n\t" + events.map(self.friendlyEvent).join("\n\t");
 		self.sendMessage(output);
+		self.mainmenu();
 	},
 	function(err)
 	{
