@@ -16,9 +16,10 @@ function Conversation (id, datastore, sendMessage)
 	this.commands = {
 		"commands": function()
 		{
-			self.sendMessage("Available commands:\n!" + Object.keys(self.commands).join("\n!"));
+			self.sendMessage("Available commands:\n\t!" + Object.keys(self.commands).join("\n\t!"));
 		},
-		"whoami": this.whoami.bind(this)
+		"whoami": this.whoami.bind(this),
+		"cancel": function(){self.mainmenu()}
 	};
 
 	this.playsOnPrimary = false;
@@ -40,10 +41,31 @@ function Conversation (id, datastore, sendMessage)
 		}
 	});
 
+	this.handler = this.mainmenu.bind(this);
+
 	EventEmitter.call(this);
 }
 
 util.inherits(Conversation, EventEmitter);
+
+Conversation.prototype.mainmenu = function()
+{
+	var self = this;
+	var counter = 1;
+	var output = "\n" + this.menuOptions
+		.map(function(option){return "\t" + counter++ + ": " + option.label;})
+		.join("\n");
+	this.handler = function(message)
+	{
+		var input = message * 1;
+		if(!isNaN(input) && input > 0 && input <= self.menuOptions.length)
+			self.menuOptions[input - 1].action();
+		else
+			self.sendMessage("Option '" + message + "' not recognized.  Please choose from the list.");
+
+	};
+	this.sendMessage(output);
+}
 
 Conversation.prototype.handleMessage = function(message)
 {

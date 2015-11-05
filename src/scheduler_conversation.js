@@ -5,54 +5,35 @@ var Conversation = require("./conversation.js");
 function SchedulerConversation()
 {
 	Conversation.apply(this, arguments);
-
-	this.handler = this.mainmenu.bind(this);
+	this.menuOptions = [
+		{label: "List currently scheduled scrims.", action: this.listScrims.bind(this)},
+		{label: "Schedule a new scrim.", action: this.schedule.bind(this)},
+		{label: "Modify an existing scrim.", action: this.update.bind(this)}
+	];
 }
 
 util.inherits(SchedulerConversation, Conversation);
 
-SchedulerConversation.prototype.mainmenu = function()
+SchedulerConversation.prototype.getEvents = function()
 {
 	var self = this;
-	this.sendMessage("\n\
-1: List currently scheduled scrims.\n\
-2: Schedule a new scrim.\n\
-3: Modify an existing scrim.");
-	this.handler = function(message)
+	var ids = [];
+	if(!self.playsOnPrimary && !self.schedulesForPrimary)
 	{
-		switch(message)
-		{
-			case "1":
-				self.listScrims();
-				break;
-			case "2":
-				self.schedule();
-				break;
-			case "3":
-				self.update();
-			default:
-				self.sendMessage("Option '" + message + "' not recognized.  Please choose from the list.");
-				break;
-		}
-	};
+		ids.concat(self.player.playsOn.map(function(team){return team.calendarId;}));
+		ids.concat(self.player.schedulesFor.map(function(team){return team.calendarId;}));
+	}
+	return self.datastore.getEvents(ids);
 }
 
 SchedulerConversation.prototype.listScrims = function()
 {
 	//List for each team they play or schedule for
 	var self = this;
-	var ids = [];
-	if(!this.playsOnPrimary && !this.schedulesForPrimary)
+
+	this.getEvents(ids).then(function(events)
 	{
-		ids.concat(this.player.playsOn.map(function(team){return team.calendarId;}));
-		ids.concat(this.player.schedulesFor.map(function(team){return team.calendarId;}));
-	}
-	this.datastore.getEvents(ids).then(function(events)
-	{
-		var output = "Upcoming scrims:\n" + events.map(function(event)
-		{
-			return Conversation.friendlyEvent(event);
-		}).join("\n");
+		var output = "Upcoming scrims:\n\t" + events.map(Conversation.friendlyEvent).join("\n\t");
 		self.sendMessage(output);
 	},
 	function(err)

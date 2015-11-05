@@ -83,9 +83,7 @@ Datastore.prototype.getEvents = function(ids)
 			return self.calendar.getEvents(id);
 		})).then(function(eventsArr)
 		{
-			var temp = [].concat.apply([], eventsArr);
-			console.log(temp);
-			temp = temp.sort(function(a, b)
+			resolve([].concat.apply([], eventsArr).sort(function(a, b)
 				{
 					if(a.start.isBefore(b.start))
 						return -1;
@@ -93,11 +91,22 @@ Datastore.prototype.getEvents = function(ids)
 						return 0;
 					else
 						return 1;
-				});
-			console.log(temp);
-			resolve(temp);
+				}));
 		}, reject);
 	});
+}
+
+Datastore.prototype.setEvent = function(event)
+{
+	if(event.id)
+		return this.calendar.modifyEvent(event, event.calendarId);
+	else
+		return this.calendar.createEvent(event, event.calendarId);
+}
+
+Datastore.prototype.cancelEvent = function(event)
+{
+	return this.calendar.deleteEvent(event, event.calendarId);
 }
 
 Datastore.prototype.getLog = function(id)

@@ -120,7 +120,7 @@ Calendar.prototype.getEvents = function(calendarId)
 			}
 			resolve(response.items.map(function(event)
 			{
-				return new Calendar.Event(event);
+				return new Calendar.Event(event, calendarId);
 			}));
 		});
 	});
@@ -146,9 +146,51 @@ Calendar.prototype.createEvent = function(event, calendarId)
 	})
 }
 
-Calendar.Event = function(event)
+Calendar.prototype.modifyEvent = function(event, calendarId)
+{
+	var self = this;
+
+	return new Promise(function(resolve, reject)
+	{
+		self.calendar.events.update({
+			auth: self.auth,
+			calendarId: calendarId,
+			eventId: event.id,
+			resource: event.objectify()
+		}, function(err, event)
+		{
+			if(err)
+				reject(err);
+			else
+				resolve(event);
+		});
+	});
+}
+
+Calendar.prototype.deleteEvent = function(event, calendarId)
+{
+	var self = this;
+
+	return new Promise(function(resolve, reject)
+	{
+		self.calendar.events.delete({
+			auth: self.auth,
+			calendarId: calendarId,
+			eventId: event.id
+		}, function(err)
+		{
+			if(err)
+				reject(err);
+			else
+				resolve();
+		});
+	})
+}
+
+Calendar.Event = function(event, calendarId)
 {
 	this.id = event.id || false;
+	this.calendarId = calendarId || false;
 	this.summary = event.summary;
 	this.location = event.location || false;
 	this.start = moment(event.start.dateTime || event.start.date);

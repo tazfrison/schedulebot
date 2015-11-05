@@ -7,50 +7,22 @@ var Event = require("./calendar.js").Event;
 
 function AdminConversation()
 {
-	var self = this;
 	Conversation.apply(this, arguments);
-	this.handler = this.mainmenu.bind(this);
-
-	this.commands.cancel = function(){self.mainmenu()};
+	this.menuOptions = [
+		{label: "List currently scheduled scrims.", action: this.listScrims.bind(this)},
+		{label: "Schedule a new scrim.", action: this.schedule.bind(this)},
+		{label: "Modify an existing scrim.", action: this.update.bind(this)}
+	];
 }
 
 util.inherits(AdminConversation, Conversation);
-
-AdminConversation.prototype.mainmenu = function()
-{
-	var self = this;
-	this.sendMessage("\n\
-1: List currently scheduled scrims.\n\
-2: Schedule a new scrim.\n\
-3: Modify an existing scrim.");
-	this.handler = function(message)
-	{
-		switch(message)
-		{
-			case "1":
-				self.listScrims();
-				break;
-			case "2":
-				self.schedule();
-				break;
-			case "3":
-				self.update();
-			default:
-				self.sendMessage("Option '" + message + "' not recognized.  Please choose from the list.");
-				break;
-		}
-	};
-}
 
 AdminConversation.prototype.listScrims = function()
 {
 	var self = this;
 	this.datastore.getEvents().then(function(events)
 	{
-		var output = "Upcoming scrims:\n" + events.map(function(event)
-		{
-			return Conversation.friendlyEvent(event);
-		}).join("\n");
+		var output = "Upcoming scrims:\n\t" + events.map(Conversation.friendlyEvent).join("\n\t");
 		self.sendMessage(output);
 		self.mainmenu();
 	},
@@ -94,10 +66,10 @@ AdminConversation.prototype.schedule = function()
 		time = moment(date + "T" + message, "M/D H:mm");
 		self.handler = getServer;
 		self.sendMessage("What server?\n\
-1: Ours ()\n\
-2: Yours ()\n\
-3: Other\n\
-4: Skip for now");
+	1: Ours ()\n\
+	2: Yours ()\n\
+	3: Other\n\
+	4: Skip for now");
 	};
 	var getServer = function(message)
 	{
@@ -120,8 +92,8 @@ AdminConversation.prototype.schedule = function()
 			start:{
 				dateTime: time.format()
 			}
-		});
-		self.datastore.calendar.createEvent(event, team.calendarId).then(function(event)
+		}, team.calendarId);
+		self.datastore.setEvent(event).then(function(event)
 		{
 			console.log("Event added");
 			self.mainmenu();
@@ -138,26 +110,138 @@ AdminConversation.prototype.schedule = function()
 
 	output += teams.map(function(team)
 	{
-		return counter++ + ": " + team.name;
+		return "\t" + counter++ + ": " + team.name;
 	}).join("\n");
 	this.sendMessage(output);
-	
-	//What day
-		//Reject if no openings
-	//What time
-		//List available times
-	//What server
-		//Ours/their default/special
 }
 
 AdminConversation.prototype.update = function()
 {
-	//List scrims for all teams
-	//List details of chosen scrim
-		//Change date
-		//Change time
-		//Change location
-		//Cancel
+	var self = this;
+	var event;
+	var output;
+
+	var whatChange = function(message)
+	{
+		switch(message)
+		{
+			case "1":
+				self.handler = whatDate;
+				self.sendMessage("What date do you want to reschedule to? (M/D): ");
+				break;
+			case "2":
+				self.handler = whatTime;
+				self.sendMessage("What time do you want to reschedule for? (H:MM): ");
+				break;
+			case "3":
+				self.handler = whatLocation;
+				self.sendMessage("What server?\n\
+	1: Ours ()\n\
+	2: Yours ()\n\
+	3: Other\n\
+	4: Skip for now");
+				break;
+			case "4":
+				cancel()
+				break;
+			default:
+				self.sendMessage(input + " is invalid.  " + output);
+				break;
+		}
+	}
+
+	var whatDate = function(message)
+	{
+		var date = moment(message, "M/D");
+		event.start.set({"month": date.month(), "day": date.day()});
+		self.datastore.setEvent(event).then(function(event)
+		{
+			console.log("Event date changed");
+			self.mainmenu();
+		}, function(err)
+		{
+			console.log("Event failed: " + err + "\n" + event);
+			self.mainmenu();
+		});
+	}
+
+	var whatTime = function(message)
+	{
+		var time = moment(message, "H:mm");
+		event.start.set({"hour": time.hour(), "minute": time.minute()});
+		self.datastore.setEvent(event).then(function(event)
+		{
+			console.log("Event time changed");
+			self.mainmenu();
+		}, function(err)
+		{
+			console.log("Event failed: " + err + "\n" + event);
+			self.mainmenu();
+		});
+	}
+
+	var whatLocation = function(message)
+	{
+		self.handler = getServer;
+		self.sendMessage("What server?\n\
+	1: Ours ()\n\
+	2: Yours ()\n\
+	3: Other\n\
+	4: Skip for now");
+	}
+
+	var getServer = function(message)
+	{
+		event.location = message;
+		self.datastore.setEvent(event).then(function(event)
+		{
+			console.log("Event location changed");
+			self.mainmenu();
+		}, function(err)
+		{
+			console.log("Event failed: " + err + "\n" + event);
+			self.mainmenu();
+		});
+	}
+
+	var cancel = function()
+	{
+		self.datastore.cancelEvent(event);
+	}
+
+	this.datastore.getEvents().then(function(events)
+	{
+		var counter = 1;
+
+		self.handler = function(message)
+		{
+			var input = message * 1;
+			if(!isNaN(input) && input > 0 && input <= events.length)
+			{
+				event = events[input - 1];
+				self.handler = whatChange;
+				output = "What do you want to change?\n\
+	1: Date: " + event.start.format("dddd, MMM Do") + "\n\
+	2: Time: " + event.start.format("h:mm A") + "\n\
+	3: Location: " + event.location + "\n\
+	4: Cancel scrim";
+				self.sendMessage(output);
+			}
+			else
+			{
+				self.sendMessage(input + " is invalid.  " + output);
+			}
+		};
+
+		output = "Choose an upcoming scrim:\n" + events.map(function(event)
+		{
+			return "\t" + counter++ + ": " + Conversation.friendlyEvent(event);
+		}).join("\n");
+		self.sendMessage(output);
+	},function(err)
+	{
+		console.log(err);
+	});
 }
 
 module.exports = AdminConversation;

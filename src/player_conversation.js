@@ -5,33 +5,15 @@ var Conversation = require("./conversation.js");
 function PlayerConversation()
 {
 	Conversation.apply(this, arguments);
-	this.handler = this.mainmenu.bind(this);
+	this.menuOptions = [
+		{label: "List currently scheduled scrims.", action: this.listScrims.bind(this)}
+	];
 }
 
 util.inherits(PlayerConversation, Conversation);
 
-PlayerConversation.prototype.mainmenu = function()
-{
-	var self = this;
-	this.sendMessage("\n\
-1: List currently scheduled scrims.");
-	this.handler = function(message)
-	{
-		switch(message)
-		{
-			case "1":
-				self.listScrims();
-				break;
-			default:
-				self.sendMessage("Option '" + message + "' not recognized.  Please choose from the list.");
-				break;
-		}
-	};
-}
-
 PlayerConversation.prototype.listScrims = function()
 {
-	//List scrims for each team they're a player on
 	var self = this;
 	var ids = [];
 	if(!this.playsOnPrimary)
@@ -40,10 +22,7 @@ PlayerConversation.prototype.listScrims = function()
 	}
 	this.datastore.getEvents(ids).then(function(events)
 	{
-		var output = "Upcoming scrims:\n" + events.map(function(event)
-		{
-			return Conversation.friendlyEvent(event);
-		}).join("\n");
+		var output = "Upcoming scrims:\n\t" + events.map(Conversation.friendlyEvent).join("\n\t");
 		self.sendMessage(output);
 	},
 	function(err)
