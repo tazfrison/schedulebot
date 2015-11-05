@@ -120,7 +120,7 @@ Calendar.prototype.getEvents = function(calendarId)
 			}
 			resolve(response.items.map(function(event)
 			{
-				return new Calendar.Event(event, calendarId);
+				return new Calendar.Event(calendarId, event);
 			}));
 		});
 	});
@@ -187,13 +187,37 @@ Calendar.prototype.deleteEvent = function(event, calendarId)
 	})
 }
 
-Calendar.Event = function(event, calendarId)
+Calendar.Event = function(calendarId, event)
 {
-	this.id = event.id || false;
 	this.calendarId = calendarId || false;
-	this.summary = event.summary;
-	this.location = event.location || false;
-	this.start = moment(event.start.dateTime || event.start.date);
+	this.id = false;
+	if(event)
+	{
+		this.id = event.id || false;
+		this.summary = event.summary;
+		this.location = event.location || false;
+		this.start = moment(event.start.dateTime || event.start.date);
+	}
+}
+
+Calendar.Event.prototype.setDate = function(date)
+{
+	this.start.set({"month": date.month(), "day": date.day(), "year": date.year()});
+}
+
+Calendar.Event.prototype.setTime = function(time)
+{
+	this.start.set({"hour": time.hour(), "minute": time.minute(), "second": time.second()});
+}
+
+Calendar.Event.prototype.setSummary = function(summary)
+{
+	this.summary = summary;
+}
+
+Calendar.Event.prototype.setLocation = function(location)
+{
+	this.location = location;
 }
 
 Calendar.Event.prototype.objectify = function()

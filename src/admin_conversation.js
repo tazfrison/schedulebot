@@ -77,12 +77,13 @@ AdminConversation.prototype.schedule = function()
 				break;
 		}
 
-		var event = new Event({
+		var event = new Event(team.calendarId,
+		{
 			summary: "Scrim vs " + team.name,
 			start:{
 				dateTime: time.format()
 			}
-		}, team.calendarId);
+		});
 		self.datastore.setEvent(event).then(function(event)
 		{
 			console.log("Event added");
