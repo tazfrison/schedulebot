@@ -227,6 +227,9 @@ ScheduleBot.prototype.onFriendFriend = function(id, relationship)
 
 ScheduleBot.prototype.onFriendPersonaState = function(state)
 {
+	if(this.datastore.teamdata.getPlayer(state.friendid).name !== state.player_name)
+		this.datastore.teamdata.updatePlayerName(state.friendid, state.player_name);
+
 	if(this.pending[state.friendid])
 	{
 		while(this.pending[state.friendid].length > 0)

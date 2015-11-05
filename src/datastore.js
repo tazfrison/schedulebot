@@ -210,6 +210,17 @@ TeamData.prototype.getPlayer = function(id)
 	return this.players[id] || false;
 }
 
+TeamData.prototype.updatePlayerName = function(id, name)
+{
+	if(this.players[id])
+	{
+		console.log("Updating " + this.players[id].name
+			+ "'s name to " + name);
+		this.players[id].name = name;
+		this.save();
+	}
+}
+
 TeamData.prototype.getOwnPlayers = function()
 {
 	return this.ownTeam.roster;
