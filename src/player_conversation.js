@@ -12,15 +12,20 @@ function PlayerConversation()
 
 util.inherits(PlayerConversation, Conversation);
 
-PlayerConversation.prototype.listScrims = function()
+PlayerConversation.prototype.getEvents = function()
 {
-	var self = this;
 	var ids = [];
 	if(!this.playsOnPrimary)
 	{
 		ids = this.player.playsOn.map(function(team){return team.calendarId;});
 	}
-	this.datastore.getEvents(ids).then(function(events)
+	return this.datastore.getEvents(ids);
+}
+
+PlayerConversation.prototype.listScrims = function()
+{
+	var self = this;
+	this.getEvents().then(function(events)
 	{
 		var output = "Upcoming scrims:\n\t" + events.map(Conversation.friendlyEvent).join("\n\t");
 		self.sendMessage(output);

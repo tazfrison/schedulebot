@@ -1,10 +1,10 @@
 var util = require("util");
 
-var Conversation = require("./conversation.js");
+var PlayerConversation = require("./player_conversation.js");
 
 function SchedulerConversation()
 {
-	Conversation.apply(this, arguments);
+	PlayerConversation.apply(this, arguments);
 	this.menuOptions = [
 		{label: "List currently scheduled scrims.", action: this.listScrims.bind(this)},
 		{label: "Schedule a new scrim.", action: this.schedule.bind(this)},
@@ -12,7 +12,7 @@ function SchedulerConversation()
 	];
 }
 
-util.inherits(SchedulerConversation, Conversation);
+util.inherits(SchedulerConversation, PlayerConversation);
 
 SchedulerConversation.prototype.getEvents = function()
 {
@@ -24,22 +24,6 @@ SchedulerConversation.prototype.getEvents = function()
 		ids.concat(self.player.schedulesFor.map(function(team){return team.calendarId;}));
 	}
 	return self.datastore.getEvents(ids);
-}
-
-SchedulerConversation.prototype.listScrims = function()
-{
-	//List for each team they play or schedule for
-	var self = this;
-
-	this.getEvents(ids).then(function(events)
-	{
-		var output = "Upcoming scrims:\n\t" + events.map(Conversation.friendlyEvent).join("\n\t");
-		self.sendMessage(output);
-	},
-	function(err)
-	{
-		console.log(err);
-	});
 }
 
 SchedulerConversation.prototype.schedule = function()

@@ -2,12 +2,12 @@ var util = require("util");
 
 var moment = require("moment");
 
-var Conversation = require("./conversation.js");
+var SchedulerConversation = require("./scheduler_conversation.js");
 var Event = require("./calendar.js").Event;
 
 function AdminConversation()
 {
-	Conversation.apply(this, arguments);
+	SchedulerConversation.apply(this, arguments);
 	this.menuOptions = [
 		{label: "List currently scheduled scrims.", action: this.listScrims.bind(this)},
 		{label: "Schedule a new scrim.", action: this.schedule.bind(this)},
@@ -15,21 +15,11 @@ function AdminConversation()
 	];
 }
 
-util.inherits(AdminConversation, Conversation);
+util.inherits(AdminConversation, SchedulerConversation);
 
-AdminConversation.prototype.listScrims = function()
+AdminConversation.prototype.getEvents = function()
 {
-	var self = this;
-	this.datastore.getEvents().then(function(events)
-	{
-		var output = "Upcoming scrims:\n\t" + events.map(Conversation.friendlyEvent).join("\n\t");
-		self.sendMessage(output);
-		self.mainmenu();
-	},
-	function(err)
-	{
-		console.log(err);
-	});
+	return this.datastore.getEvents();
 }
 
 AdminConversation.prototype.schedule = function()
