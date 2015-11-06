@@ -67,6 +67,10 @@ Datastore.prototype.setSentry = function(username, sentry)
 	fs.writeFileSync(sentryPath, sentry);
 }
 
+/* **********************************
+        CALENDAR MODIFICATIONS
+********************************** */
+
 Datastore.prototype.getEvents = function(ids)
 {
 	var self = this;
@@ -110,6 +114,80 @@ Datastore.prototype.cancelEvent = function(event)
 {
 	return this.calendar.deleteEvent(event, event.calendarId);
 }
+
+/* **********************************
+        TEAMDATA MODIFICATIONS
+********************************** */
+
+Datastore.prototype.getPlayer = function(id)
+{
+	return this.teamdata.getPlayer(id);
+}
+
+Datastore.prototype.getPlayers = function()
+{
+	var players = [];
+	for(var id in this.teamdata.players)
+		players.push(this.teamdata.players[id]);
+	return players;
+}
+
+Datastore.prototype.getPrimaryPlayers = function()
+{
+	return this.teamdata.getOwnPlayers();
+}
+
+Datastore.prototype.createPlayer = function(id)
+{
+	var player = this.teamdata.players[id] = new TeamData.Player(id, {name: ""});
+	this.teamdata.save();
+	return player;
+}
+
+Datastore.prototype.deletePlayer = function(id)
+{
+	var player = this.getPlayer(id);
+	player.playsOn.forEach(function(team)
+	{
+		team.players.splice(team.players.indexOf(player), 1);
+	});
+	player.scheduleFor.forEach(function(team)
+	{
+		team.schedulers.splice(team.schedulers.indexOf(player), 1);
+	});
+	delete this.teamdata.players[id];
+	this.teamdata.save();
+}
+
+Datastore.prototype.getTeams = function()
+{
+	return this.teamdata.teams.slice();
+}
+
+Datastore.prototype.createTeam = function(name)
+{
+	var team = this.teamdata.teams.push(new TeamData.Team({name: name}, []));
+	this.teamdata.save();
+	return team;
+}
+
+Datastore.prototype.deleteTeam = function(team)
+{
+	team.players.forEach(function(team)
+	{
+		player.playsOn.splice(player.playsOn.indexOf(team), 1);
+	});
+	team.schedulers.forEach(function(team)
+	{
+		player.scheduleFor.splice(player.scheduleFor.indexOf(player), 1);
+	});
+	this.teamdata.teams.splice(this.teamdata.teams.indexOf(team));
+	this.teamdata.save();
+}
+
+/* **********************************
+             CHAT LOGGING
+********************************** */
 
 Datastore.prototype.getLog = function(id)
 {
@@ -223,7 +301,7 @@ TeamData.prototype.updatePlayerName = function(id, name)
 
 TeamData.prototype.getOwnPlayers = function()
 {
-	return this.ownTeam.roster;
+	return this.ownTeam.roster.slice();
 }
 
 TeamData.prototype.isAdmin = function(id)
@@ -273,11 +351,19 @@ TeamData.prototype.save = function()
 TeamData.prototype.toString = function()
 {
 	var output = {
-		players: this.players,
-		teams: this.teams
+		players: {},
+		teams: this.teams.map(function(team)
+		{
+			return team.flatten();
+		})
+	};
+
+	for(var player in this.players)
+	{
+		output.players[player] = this.players[player].flatten();
 	}
 
-	return JSON.stringify(output);
+	return JSON.stringify(output, null, 4);
 }
 
 TeamData.Team = function(data, players)
@@ -292,15 +378,15 @@ TeamData.Team = function(data, players)
 
 	data.roster.forEach(function(id)
 	{
-		players[id].addAsPlayer(self);
+		players[id].addTeam(self);
 	});
 	data.schedulers.forEach(function(id)
 	{
-		players[id].addAsScheduler(self);
+		players[id].addTeam(self, true);
 	});
 }
 
-TeamData.Team.prototype.toString = function()
+TeamData.Team.prototype.flatten = function()
 {
 	var output = {
 		name: this.name,
@@ -319,7 +405,12 @@ TeamData.Team.prototype.toString = function()
 		output.schedulers.push(player.id);
 	});
 
-	return JSON.stringify(output);
+	return output;
+}
+
+TeamData.Team.prototype.toString = function()
+{
+	return JSON.stringify(this.flatten());
 }
 
 TeamData.Player = function(id, data)
@@ -331,19 +422,35 @@ TeamData.Player = function(id, data)
 	this.schedulesFor = [];
 }
 
-TeamData.Player.prototype.addAsPlayer = function(team)
+TeamData.Player.prototype.addTeam = function(team, asScheduler)
 {
-	this.playsOn.push(team);
-	team.roster.push(this);
+	if(asScheduler)
+	{
+		this.schedulesFor.push(team);
+		team.schedulers.push(this);
+	}
+	else
+	{
+		this.playsOn.push(team);
+		team.roster.push(this);
+	}
 }
 
-TeamData.Player.prototype.addAsScheduler = function(team)
+TeamData.Player.prototype.removeTeam = function(team, asScheduler)
 {
-	this.schedulesFor.push(team);
-	team.schedulers.push(this);
+	if(asScheduler)
+	{
+		this.schedulesFor.splice(this.schedulesFor.indexOf(team), 1);
+		team.schedulers.splice(team.schedulers.indexOf(this), 1);
+	}
+	else
+	{
+		this.playsOn.splice(this.playsOn.indexOf(team), 1);
+		team.roster.splice(team.roster.indexOf(this), 1);
+	}
 }
 
-TeamData.Player.prototype.toString = function()
+TeamData.Player.prototype.flatten = function()
 {
 	var output = {
 		name: this.name
@@ -351,7 +458,12 @@ TeamData.Player.prototype.toString = function()
 	if(this.admin)
 		output.admin = true;
 
-	return JSON.stringify(output);
+	return output;
+}
+
+TeamData.Player.prototype.toString = function()
+{
+	return JSON.stringify(this.flatten());
 }
 
 module.exports = Datastore;

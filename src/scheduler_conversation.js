@@ -16,6 +16,12 @@ function SchedulerConversation()
 
 util.inherits(SchedulerConversation, PlayerConversation);
 
+SchedulerConversation.prototype.cancel = function()
+{
+	delete this.state.event;
+	this.mainmenu();
+}
+
 SchedulerConversation.prototype.getTeams = function(schedulerOnly)
 {
 	var teams = this.player.schedulesFor.slice();
@@ -43,20 +49,20 @@ SchedulerConversation.prototype.getEvents = function(schedulerOnly)
 	return this.datastore.getEvents(ids);
 }
 
-SchedulerConversation.prototype.chooseTeam = function(nextState)
+SchedulerConversation.prototype.chooseTeam = function(callback)
 {
 	var self = this;
 
 	var teams = this.getTeams(true);
 	this.handler = function(message)
 	{
-		var input = message * 1;
-		if(!isNaN(input) && input > 0 && input <= teams.length)
+		var input = message * 1 - 1;
+		if(!isNaN(input) && input >= 0 && input < teams.length)
 		{
-			self.state.team = teams[input - 1];
+			self.state.team = teams[input];
 			self.state.event = new Event(self.state.team.calendarId);
 			self.state.event.setSummary("Scrim vs " + self.state.team.name);
-			nextState();
+			callback(team);
 		}
 		else
 		{
@@ -156,13 +162,11 @@ SchedulerConversation.prototype.chooseServer = function()
 			self.datastore.setEvent(self.state.event).then(function(event)
 			{
 				console.log("Event added");
-				delete self.state.event;
-				self.mainmenu();
+				self.cancel();
 			}, function(err)
 			{
 				console.log("Event failed: " + err + "\n" + self.state.event);
-				delete self.state.event;
-				self.mainmenu();
+				self.cancel();
 			});
 		}
 	};
@@ -186,10 +190,10 @@ SchedulerConversation.prototype.chooseEvent = function()
 
 		self.handler = function(message)
 		{
-			var input = message * 1;
-			if(!isNaN(input) && input > 0 && input <= events.length)
+			var input = message * 1 - 1;
+			if(!isNaN(input) && input >= 0 && input < events.length)
 			{
-				self.state.event = events[input - 1];
+				self.state.event = events[input];
 				self.update();
 			}
 			else
@@ -258,13 +262,11 @@ SchedulerConversation.prototype.update = function()
 		self.datastore.setEvent(self.state.event).then(function()
 		{
 			self.message("Scrim updated.");
-			delete self.state.event;
-			self.mainmenu();
+			self.cancel();
 		}, function(err)
 		{
 			console.log("Failed to save event: " + err);
-			delete self.state.event;
-			self.mainmenu();
+			self.cancel();
 		});
 	}
 
@@ -273,13 +275,11 @@ SchedulerConversation.prototype.update = function()
 		self.datastore.cancelEvent(self.state.event).then(function()
 		{
 			self.message("Scrim cancelled.");
-			delete self.state.event;
-			self.mainmenu();
+			self.cancel();
 		}, function(err)
 		{
 			console.log("Failed to save event: " + err);
-			delete self.state.event;
-			self.mainmenu();
+			self.cancel();
 		});
 	}
 

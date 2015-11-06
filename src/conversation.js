@@ -16,7 +16,7 @@ function Conversation (id, datastore, sendMessage)
 			self.sendMessage("Available commands:\n\t!" + Object.keys(self.commands).join("\n\t!"));
 		},
 		"whoami": this.whoami.bind(this),
-		"cancel": function(){self.state = {}; self.mainmenu();}
+		"cancel": this.cancel.bind(this)
 	};
 
 	this.playsOnPrimary = false;
@@ -41,6 +41,12 @@ function Conversation (id, datastore, sendMessage)
 	this.state = {};
 
 	this.handler = this.mainmenu.bind(this);
+}
+
+Conversation.prototype.cancel = function()
+{
+	this.state = {};
+	this.mainmenu();
 }
 
 Conversation.prototype.mainmenu = function()
