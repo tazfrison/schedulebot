@@ -72,6 +72,16 @@ Datastore.prototype.setSentry = function(username, sentry)
         CALENDAR MODIFICATIONS
 ********************************** */
 
+Datastore.prototype.createCalendar = function(name)
+{
+	return this.__calendar.createCalendar(name);
+}
+
+Datastore.prototype.deleteCalendar = function(calendarId)
+{
+	return this.__calendar.deleteCalendar(calendarId);
+}
+
 Datastore.prototype.getEvents = function(ids)
 {
 	var self = this;
@@ -149,12 +159,26 @@ Datastore.prototype.getTeams = function()
 
 Datastore.prototype.createTeam = function(name)
 {
-	return this.__teamdata.createTeam(name);
+	var self = this;
+	return new Promise(function(resolve, reject)
+	{
+		self.createCalendar(name).then(function(calendarId)
+		{
+			resolve(self.__teamdata.createTeam({name: name, calendarId: calendarId}));
+		}, reject);
+	});
 }
 
 Datastore.prototype.deleteTeam = function(team)
 {
-	return this._teamdata.deleteTeam(name);
+	var self = this;
+	return new Promise(function(resolve, reject)
+	{
+		self.deleteCalendar(team.calendarId).then(function()
+		{
+			resolve(self.__teamdata.deleteTeam(team));
+		}, reject);
+	});
 }
 
 Datastore.prototype.saveTeamData = function()

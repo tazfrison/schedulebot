@@ -62,7 +62,7 @@ SchedulerConversation.prototype.chooseTeam = function(callback)
 			self.state.team = teams[input];
 			self.state.event = new Event(self.state.team.calendarId);
 			self.state.event.setSummary("Scrim vs " + self.state.team.name);
-			callback(team);
+			callback(self.state.team);
 		}
 		else
 		{
@@ -158,7 +158,7 @@ SchedulerConversation.prototype.chooseServer = function()
 		}
 		else
 		{
-			self.message("Creating scrim.");
+			self.sendMessage("Creating scrim.");
 			self.datastore.setEvent(self.state.event).then(function(event)
 			{
 				console.log("Event added");
@@ -261,7 +261,7 @@ SchedulerConversation.prototype.update = function()
 	{
 		self.datastore.setEvent(self.state.event).then(function()
 		{
-			self.message("Scrim updated.");
+			self.sendMessage("Scrim updated.");
 			self.cancel();
 		}, function(err)
 		{
@@ -274,7 +274,7 @@ SchedulerConversation.prototype.update = function()
 	{
 		self.datastore.cancelEvent(self.state.event).then(function()
 		{
-			self.message("Scrim cancelled.");
+			self.sendMessage("Scrim cancelled.");
 			self.cancel();
 		}, function(err)
 		{

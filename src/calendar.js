@@ -41,6 +41,58 @@ Calendar.prototype.init = function()
 	});
 }
 
+Calendar.prototype.createCalendar = function(name)
+{
+	var self = this;
+	return new Promise(function(resolve, reject)
+	{
+		if(!name)
+		{
+			reject("No name provided.");
+			return;
+		}
+		self.calendar.calendars.insert({
+			auth: self.auth,
+			resource: {
+				summary: name
+			}
+		}, function(err, response)
+		{
+			if(err)
+			{
+				reject(err);
+				return;
+			}
+			resolve(response.id);
+		})
+	});
+}
+
+Calendar.prototype.deleteCalendar = function(calendarId)
+{
+	var self = this;
+	return new Promise(function(resolve, reject)
+	{
+		if(!calendarId)
+		{
+			reject("No calendar id provided.");
+			return;
+		}
+		self.calendar.calendars.delete({
+			auth: self.auth,
+			calendarId: calendarId
+		}, function(err, response)
+		{
+			if(err)
+			{
+				reject(err);
+				return;
+			}
+			resolve();
+		})
+	});
+}
+
 Calendar.prototype.getCalendars = function()
 {
 	var self = this;
@@ -57,45 +109,6 @@ Calendar.prototype.getCalendars = function()
 			}
 			resolve(response.items);
 		});
-	});
-}
-
-/**
- * Lists the next 10 events on the user's primary calendar.
- *
- * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
- */
-Calendar.prototype.listEvents = function(calendarId)
-{
-	this.calendar.events.list({
-		auth: this.auth,
-		calendarId: calendarId || 'primary',
-		timeMin: (new Date()).toISOString(),
-		maxResults: 10,
-		singleEvents: true,
-		orderBy: 'startTime'
-	}, function(err, response)
-	{
-		if (err)
-		{
-			console.log('The API returned an error: ' + err);
-			return;
-		}
-		var events = response.items;
-		if (events.length == 0)
-		{
-			console.log('No upcoming events found.');
-		}
-		else
-		{
-			console.log('Upcoming 10 events:');
-			for (var i = 0; i < events.length; i++)
-			{
-				var event = events[i];
-				var start = event.start.dateTime || event.start.date;
-				console.log('%s - %s', start, event.summary);
-			}
-		}
 	});
 }
 

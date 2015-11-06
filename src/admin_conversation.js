@@ -340,8 +340,14 @@ AdminConversation.prototype.createTeam = function()
 
 	this.handler = function(message)
 	{
-		self.state.team = self.datastore.createTeam(message);
-		self.modifyTeam();
+		self.datastore.createTeam(message).then(function(team)
+		{
+			self.state.team = team;
+			self.modifyTeam();
+		}, function(err)
+		{
+			console.log("BAD STUFF " + err);
+		});
 	};
 
 	var output = "What is the team name?: ";
@@ -382,18 +388,24 @@ AdminConversation.prototype.modifyTeam = function()
 				deleteTeam();
 				break;
 			default:
-				self.sendMessage(message + " is invalid.  " + output);
+				self.sendMessage(message + " is invalid.  " + util.format(output, self.state.team.name));
 				break;
 		}
 	}
 
 	var deleteTeam = function()
 	{
-		self.datastore.deleteTeam(self.state.team);
-		self.cancel();
+		self.datastore.deleteTeam(self.state.team).then(function()
+		{
+			self.cancel();
+		}, function(err)
+		{
+			console.log("BAD STUFF " + err);
+			self.cancel();
+		});
 	}
 
-	var output = "What do you want to change about " + this.state.team.name + "?\n\
+	var output = "What do you want to change about %s?\n\
 	1: Change team name.\n\
 	2: Add player to team.\n\
 	3: Remove player from team.\n\
@@ -402,7 +414,7 @@ AdminConversation.prototype.modifyTeam = function()
 	6: Delete team.";
 
 
-	this.sendMessage(output);
+	this.sendMessage(util.format(output, this.state.team.name));
 }
 
 module.exports = AdminConversation;

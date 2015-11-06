@@ -119,7 +119,7 @@ TeamData.prototype.deletePlayer = function(id)
 	var player = this.getPlayer(id);
 	player.playsOn.forEach(function(team)
 	{
-		team.players.splice(team.players.indexOf(player), 1);
+		team.roster.splice(team.roster.indexOf(player), 1);
 	});
 	player.scheduleFor.forEach(function(team)
 	{
@@ -167,16 +167,16 @@ TeamData.prototype.isAdmin = function(id)
 			TEAM
 ************************** */
 
-TeamData.prototype.createTeam = function(name)
+TeamData.prototype.createTeam = function(options)
 {
-	var team = this.teams.push(new TeamData.Team({name: name}, []));
+	var team = this.teams.push(new TeamData.Team(options, []));
 	this.save();
 	return team;
 }
 
-TeamData.prototype.deleteTeam = function(id)
+TeamData.prototype.deleteTeam = function(team)
 {
-	team.players.forEach(function(team)
+	team.roster.forEach(function(team)
 	{
 		player.playsOn.splice(player.playsOn.indexOf(team), 1);
 	});
@@ -215,14 +215,20 @@ TeamData.Team = function(data, players)
 	this.roster = [];
 	this.schedulers = [];
 
-	data.roster.forEach(function(id)
+	if(data.roster)
 	{
-		players[id].addTeam(self);
-	});
-	data.schedulers.forEach(function(id)
+		data.roster.forEach(function(id)
+		{
+			players[id].addTeam(self);
+		});
+	}
+	if(data.schedulers)
 	{
-		players[id].addTeam(self, true);
-	});
+		data.schedulers.forEach(function(id)
+		{
+			players[id].addTeam(self, true);
+		});
+	}
 }
 
 TeamData.Team.prototype.flatten = function()
