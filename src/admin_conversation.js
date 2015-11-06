@@ -30,7 +30,7 @@ AdminConversation.prototype.getEvents = function()
 
 AdminConversation.prototype.getTeams = function()
 {
-	return this.datastore.teamdata.teams.slice().filter(function(team)
+	return this.datastore.getTeams().filter(function(team)
 		{
 			return !team.primary;
 		});
@@ -56,7 +56,7 @@ AdminConversation.prototype.modifyPlayerTeams = function(asScheduler, remove)
 	}
 	else
 	{
-		teams = this.datastore.teamdata.teams.slice();
+		teams = this.datastore.getTeams();
 		if(asScheduler)
 		{
 			teams = teams.filter(function(team)
@@ -81,6 +81,7 @@ AdminConversation.prototype.modifyPlayerTeams = function(asScheduler, remove)
 				self.state.player.removeTeam(teams[input], asScheduler);
 			else
 				self.state.player.addTeam(teams[input], asScheduler);
+			self.datastore.saveTeamData();
 			self.modifyPlayer();
 		}
 		else
@@ -201,6 +202,8 @@ AdminConversation.prototype.modifyPlayer = function()
 	{
 		self.state.player.admin = !self.state.player.admin;
 
+		self.datastore.saveTeamData();
+
 		self.sendMessage(util.format(output,
 			self.state.player.name,
 			(self.state.player.admin ? "Remove" : "Make")));
@@ -270,6 +273,7 @@ AdminConversation.prototype.modifyTeamRoster = function(asScheduler, remove)
 				self.datastore.getPlayer(players[input].id).removeTeam(self.state.team, asScheduler);
 			else
 				self.datastore.getPlayer(players[input].id).addTeam(self.state.team, asScheduler);
+			self.datastore.saveTeamData();
 			self.modifyTeam();
 		}
 		else

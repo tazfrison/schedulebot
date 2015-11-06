@@ -3,7 +3,7 @@ var moment = require("moment");
 function Conversation (id, datastore, sendMessage)
 {
 	var self = this;
-	this.player = datastore.teamdata.getPlayer(id);
+	this.player = datastore.getPlayer(id);
 	this.chatid = id;
 	this.datastore = datastore;
 	this.log = this.datastore.getLog(this.chatid);

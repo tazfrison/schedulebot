@@ -104,24 +104,6 @@ ScheduleBot.prototype.handleCommand = function(command)
 		var id = command[1];
 		this.friends.sendMessage(id, command.slice(2).join(" "), Steam.EChatEntryType.ChatMsg);
 	}
-	else if(command === "listevents")
-	{
-		this.datastore.calendar.listEvents();
-	}
-	else if(command === "addevent")
-	{
-		this.datastore.calendar.createEvent();
-	}
-	else if(command === "getcalendars")
-	{
-		this.datastore.calendar.getCalendars().then(function(calendars)
-		{
-			calendars.forEach(function(calendar)
-			{
-				console.log(calendar.summary + " " + calendar.id + "\n");
-			});
-		});
-	}
 }
 
 ScheduleBot.prototype.getUserName = function(id)
@@ -138,7 +120,7 @@ ScheduleBot.prototype.listFriends = function()
 
 ScheduleBot.prototype.acceptFriend = function(id)
 {
-	if(this.datastore.teamdata.getPlayer(id))
+	if(this.datastore.getPlayer(id))
 	{
 		console.log("Accepting friend: " + this.getUserName(id) + "(" + id + ")");
 		this.friends.addFriend(id);
@@ -227,8 +209,12 @@ ScheduleBot.prototype.onFriendFriend = function(id, relationship)
 
 ScheduleBot.prototype.onFriendPersonaState = function(state)
 {
-	if(this.datastore.teamdata.getPlayer(state.friendid).name !== state.player_name)
-		this.datastore.teamdata.updatePlayerName(state.friendid, state.player_name);
+	var player = this.datastore.getPlayer(state.friendid);
+	if(player && player.name !== state.player_name)
+	{
+		player.name = state.player_name;
+		this.datastore.saveTeamData();
+	}
 
 	if(this.pending[state.friendid])
 	{
@@ -253,7 +239,7 @@ ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 	if(!this.conversations[steamId])
 	{
 		var self = this;
-		var player = this.datastore.teamdata.getPlayer(steamId);
+		var player = this.datastore.getPlayer(steamId);
 		var conversationType = false;
 		if(player)
 		{
