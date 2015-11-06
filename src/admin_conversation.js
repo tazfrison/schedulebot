@@ -91,7 +91,7 @@ AdminConversation.prototype.modifyPlayerTeams = function(asScheduler, remove)
 	};
 
 	var counter = 1;
-	var output = "What team do you want to "
+	var output = "Which team do you want to "
 		+ (remove
 			? ("remove " + this.state.player.name + " from")
 			: ("add " + this.state.player.name + " to"))
@@ -283,12 +283,12 @@ AdminConversation.prototype.modifyTeamRoster = function(asScheduler, remove)
 	};
 
 	var counter = 1;
-	var output = "What player do you want to "
-		+ (remove
-			? ("remove " + this.state.player.name + " from")
-			: ("add " + this.state.player.name + " to"))
-		+ " as "
+	var output = "Which "
 		+ (asScheduler ? "scheduler" : "player")
+		+ " do you want to "
+		+ (remove
+			? ("remove from " + this.state.team.name)
+			: ("add to " + this.state.team.name))
 		+ "?\n";
 
 	output += players.map(function(player)
@@ -412,7 +412,6 @@ AdminConversation.prototype.modifyTeam = function()
 	4: Add scheduler to team.\n\
 	5: Remove scheduler from team.\n\
 	6: Delete team.";
-
 
 	this.sendMessage(util.format(output, this.state.team.name));
 }

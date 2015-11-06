@@ -15,6 +15,11 @@ function TeamData()
 
 TeamData.prototype.init = function()
 {
+	return this.load();
+}
+
+TeamData.prototype.load = function()
+{
 	var self = this;
 
 	var confPath = path.join(resources, "data.conf");
@@ -37,45 +42,14 @@ TeamData.prototype.init = function()
 			self.admins.push(self.players[key]);
 	});
 
-	data.teams.forEach(function(team)
-	{
-		self.teams.push(new TeamData.Team(team, self.players));
-		if(team.primary)
-			self.primaryTeam = self.teams[self.teams.length - 1];
-	});
-	return Promise.resolve(true);
-}
-
-TeamData.prototype.load = function()
-{
-	var self = this;
-
-	var confPath = path.join(resources, "data.conf");
-	var data;
-	var keys;
-	try
-	{
-		fs.accessSync(confPath, fs.R_OK, fs.W_OK);
-		data = JSON.parse(fs.readFileSync(confPath));
-	}
-	catch(e)
-	{
-		return false;
-	}
-	keys = Object.keys(data.players);
+	keys = Object.keys(data.teams);
 	keys.forEach(function(key)
 	{
-		self.players[key] = new TeamData.Player(key, data.players[key]);
-		if(self.players[key].admin)
-			self.admins.push(self.players[key]);
+		self.teams[key] = new TeamData.Team(data.teams[key], self.players);
+		if(data.teams[key].primary)
+			self.primaryTeam = self.teams[key];
 	});
-
-	data.teams.forEach(function(team)
-	{
-		self.teams.push(new TeamData.Team(team, self.players));
-		if(team.primary)
-			self.primaryTeam = self.teams[self.teams.length - 1];
-	});
+	return Promise.resolve(true);
 }
 
 TeamData.prototype.save = function()
@@ -89,15 +63,17 @@ TeamData.prototype.toString = function()
 {
 	var output = {
 		players: {},
-		teams: this.teams.map(function(team)
-		{
-			return team.flatten();
-		})
+		teams: {}
 	};
 
 	for(var player in this.players)
 	{
 		output.players[player] = this.players[player].flatten();
+	}
+
+	for(var team in this.teams)
+	{
+		output.teams[team] = this.teams[team].flatten();
 	}
 
 	return JSON.stringify(output, null, 4);
@@ -160,7 +136,7 @@ TeamData.prototype.getPrimaryPlayers = function()
 
 TeamData.prototype.isAdmin = function(id)
 {
-	return this.admins.indexOf(this.players[id]) > -1;
+	return this.getPlayer(id).admin;
 }
 
 /* **************************
@@ -169,13 +145,16 @@ TeamData.prototype.isAdmin = function(id)
 
 TeamData.prototype.createTeam = function(options)
 {
-	var team = this.teams.push(new TeamData.Team(options, []));
+	if(!options.calendarId)
+		return false;
+	var team = this.teams[options.calendarId] = new TeamData.Team(options, []);
 	this.save();
 	return team;
 }
 
-TeamData.prototype.deleteTeam = function(team)
+TeamData.prototype.deleteTeam = function(id)
 {
+	var team = this.getTeam(id);
 	team.roster.forEach(function(team)
 	{
 		player.playsOn.splice(player.playsOn.indexOf(team), 1);
@@ -184,21 +163,27 @@ TeamData.prototype.deleteTeam = function(team)
 	{
 		player.scheduleFor.splice(player.scheduleFor.indexOf(player), 1);
 	});
-	this.teams.splice(this.teams.indexOf(team));
+	delete this.teams[id];
 	this.save();
 }
 
 TeamData.prototype.getTeams = function()
 {
-	return this.teams.slice();
+	var teams = [];
+	for(var id in this.teams)
+		teams.push(this.teams[id]);
+	return teams;
+}
+
+TeamData.prototype.getTeam = function(id)
+{
+	return this.teams[id];
 }
 
 TeamData.prototype.getTeamCalendars = function()
 {
-	return this.teams.map(function(team)
-	{
-		return team.calendarId;
-	});
+
+	return Object.keys(this.teams);
 }
 
 /* **************************

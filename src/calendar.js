@@ -112,6 +112,28 @@ Calendar.prototype.getCalendars = function()
 	});
 }
 
+Calendar.prototype.getLocation = function(calendarId)
+{
+	var self = this;
+	if(!calendarId)
+		calendarId = "primary";
+	return new Promise(function(resolve, reject)
+	{
+		self.calendar.calendarList.get({
+			auth: self.auth,
+			calendarId: calendarId
+		}, function(err, response)
+		{
+			if(err)
+			{
+				reject(err);
+				return;
+			}
+			resolve(response.location);
+		});
+	});
+}
+
 Calendar.prototype.getEvents = function(calendarId)
 {
 	var self = this;
