@@ -194,8 +194,6 @@ Datastore.prototype.getTeam = function(id)
 Datastore.prototype.getTeamLocation = function(id)
 {
 	var self = this;
-	if(!id)
-		id = "primary";
 	var team = this.__teamdata.getTeam(id);
 	if(team.location === false)
 	{
@@ -211,8 +209,6 @@ Datastore.prototype.getTeamLocation = function(id)
 Datastore.prototype.setTeamLocation = function(id, location)
 {
 	var self = this;
-	if(!id)
-		id = "primary";
 	return this.__calendar.setLocation(id, location).then(function(location)
 	{
 		self.__teamdata.getTeam(id).location = location;

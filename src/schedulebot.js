@@ -273,7 +273,7 @@ ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 	}
 	catch(e)
 	{
-		console.log(e);
+		console.log(e.message, e.stack);
 	}
 }
 

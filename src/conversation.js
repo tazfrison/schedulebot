@@ -98,26 +98,41 @@ Conversation.prototype.busy = function()
 	}
 }
 
+Conversation.prototype.makeMenu = function(properties)
+{
+	var self = this;
+
+	var counter = 1;
+	var output = ( typeof properties.label === "function" ? properties.label(this.state) : properties.label )
+		+ "\n\t" + properties.listOptions
+			.map(function(option)
+			{
+				return counter++ + ": "
+					+ ( typeof option.label === "function" ? option.label(this.state) : option.label );
+			})
+			.join("\n\t");
+	this.handler = function(message)
+	{
+		var input = message * 1 - 1;
+		if(!isNaN(input) && input >= 0 && input < properties.listOptions.length)
+			properties.listOptions[input].action();
+		else
+			self.sendMessage(message + " is invalid.  " + output);
+
+	};
+	this.sendMessage(output);
+}
+
 Conversation.prototype.mainmenu = function()
 {
 	var self = this;
 
 	this.history = [];
 
-	var counter = 1;
-	var output = "\n" + this.menuOptions
-		.map(function(option){return "\t" + counter++ + ": " + option.label;})
-		.join("\n");
-	this.handler = function(message)
-	{
-		var input = message * 1;
-		if(!isNaN(input) && input > 0 && input <= self.menuOptions.length)
-			self.menuOptions[input - 1].action();
-		else
-			self.sendMessage("Option '" + message + "' not recognized.  " + output);
-
-	};
-	this.sendMessage(output);
+	this.makeMenu({
+		label: "Main menu:",
+		listOptions: this.menuOptions
+	});
 }
 
 Conversation.prototype.handleMessage = function(message)

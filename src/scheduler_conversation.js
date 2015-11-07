@@ -54,30 +54,20 @@ SchedulerConversation.prototype.chooseTeam = function(callback)
 	var self = this;
 
 	var teams = this.getTeams(true);
-	this.handler = function(message)
-	{
-		var input = message * 1 - 1;
-		if(!isNaN(input) && input >= 0 && input < teams.length)
-		{
-			self.state.team = teams[input];
-			self.state.event = new Event(self.state.team.calendarId);
-			self.state.event.setSummary("Scrim vs " + self.state.team.name);
-			callback(self.state.team);
-		}
-		else
-		{
-			self.sendMessage(input + " is invalid.  " + output);
-		}
-	};
 
-	var counter = 1;
-	var output = "What team is this scrim against?\n";
-
-	output += teams.map(function(team)
-	{
-		return "\t" + counter++ + ": " + team.name;
-	}).join("\n");
-	this.sendMessage(output);
+	this.makeMenu({
+		label: "What team is this scrim against?",
+		listOptions: teams.map(function(team)
+		{
+			return { label: team.name, action: function()
+			{
+				self.state.team = team;
+				self.state.event = new Event(self.state.team.calendarId);
+				self.state.event.setSummary("Scrim vs " + self.state.team.name);
+				callback(self.state.team);
+			}};
+		})
+	});
 }
 
 SchedulerConversation.prototype.chooseDate = function()
@@ -166,82 +156,86 @@ SchedulerConversation.prototype.chooseServer = function()
 	this.busy();
 
 	Promise.all([
-		this.datastore.getTeamLocation(),
-		this.datastore.getTeamLocation(this.state.team.calendarId)
+		this.datastore.getTeamLocation(this.datastore.getPrimaryTeam().calendarId),
+		this.datastore.getTeamLocation(this.state.event.calendarId)
 	]).then(function(locations)
 	{
-		var counter = 0;
 		var ourServer = locations[0] || false;
 		var theirServer = locations[1] || false;
-		self.handler = function(message)
+
+		var next;
+
+		if(self.state.event.id)
 		{
-			var next = function()
-			{
-				if(self.state.event.id)
-				{
-					self.back();
-				}
-				else
-				{
-					self.sendMessage("Creating scrim.");
-					self.datastore.setEvent(self.state.event).then(function(event)
-					{
-						console.log("Event added");
-						self.cancel();
-					}, function(err)
-					{
-						console.log("Event failed: " + err + "\n" + self.state.event);
-						self.cancel();
-					});
-				}
-			}
-
-			if(message === "1" && ourServer !== false)
-			{
-				self.state.event.setLocation(ourServer);
-			}
-			else if((message === "1" && theirServer !== false )
-				|| (message === "2" && counter === 4))
-			{
-				self.state.event.setLocation(theirServer);
-			}
-			else if(message === counter - 1)
-			{
-				self.registerHistory(self.chooseServer.bind(self));
-				self.getServer(function(location)
-				{
-					self.state.event.setLocation(location);
-					next();
-				});
-			}
-			else if(message === counter)
-			{
-				self.state.event.setLocation("");
-			}
-			self.registerHistory(self.chooseServer.bind(self));
-			next();
-		};
-
-		output = "What server?\n";
-
-		if(ourServer !== false)
-		{
-			output += ++counter + ": "
-				+ self.datastore.getPrimaryTeam().name
-				+ ". ( " + ourServer + " )\n";
+			next = self.back.bind(self);
 		}
+		else
+		{
+			next = function(register)
+			{
+				if(register)
+					self.registerHistory(self.chooseServer.bind(self));
+				self.sendMessage("Creating scrim.");
+				self.datastore.setEvent(self.state.event).then(function(event)
+				{
+					console.log("Event added");
+					self.cancel();
+				}, function(err)
+				{
+					console.log("Event failed: " + err + "\n" + self.state.event);
+					self.cancel();
+				});
+			};
+		}
+
+		var options = [
+			{ label: "New server.", action: function()
+				{
+					self.registerHistory(self.chooseServer.bind(self));
+					self.getServer(function(location)
+					{
+						self.state.event.setLocation(location);
+						if(self.state.event.id)
+							self.history.pop();
+						next();
+					});
+				}},
+			{ label: "Skip for now.", action: function()
+				{
+					next(true);
+				}
+			}
+		];
 
 		if(theirServer !== false)
 		{
-			output += ++counter + ": "
-				+ self.state.team.name
-				+ ". ( " + theirServer + " )\n";
+
+			options.unshift({
+				label: self.datastore.getTeam(self.state.event.calendarId).name + ". ( " + theirServer + " )",
+				action: function()
+				{
+					self.state.event.setLocation(theirServer);
+					next(true);
+				}
+			});
 		}
 
-		output += ++counter + ": New server.\n";
-		output += ++counter + ": Skip for now.\n";
+		if(ourServer !== false)
+		{
+			options.unshift({
+				label: self.datastore.getPrimaryTeam().name + ". ( " + ourServer + " )",
+				action: function()
+				{
+					self.state.event.setLocation(ourServer);
+					next(true);
+				}
+			});
+		}
 
-		self.sendMessage(output);
+		self.makeMenu({
+			label: "What server?",
+			listOptions: options
+		});
 	});
 }
 
@@ -253,29 +247,18 @@ SchedulerConversation.prototype.chooseEvent = function()
 
 	this.getEvents().then(function(events)
 	{
-		var counter = 1;
-
-		self.handler = function(message)
-		{
-			var input = message * 1 - 1;
-			if(!isNaN(input) && input >= 0 && input < events.length)
+		self.makeMenu({
+			label: "Choose an upcoming scrim:",
+			listOptions: events.map(function(event)
 			{
-				self.state.event = events[input];
-				self.registerHistory(self.chooseEvent.bind(self));
-				self.update();
-			}
-			else
-			{
-				self.sendMessage(input + " is invalid.  " + output);
-			}
-		};
-
-		var output = "Choose an upcoming scrim:\n" + events.map(function(event)
-		{
-			return "\t" + counter++ + ": " + self.friendlyEvent(event);
-		}).join("\n");
-
-		self.sendMessage(output);
+				return { label: self.friendlyEvent(event), action: function()
+				{
+					self.state.event = event;
+					self.registerHistory(self.chooseEvent.bind(self));
+					self.update();
+				}};
+			})
+		});
 	},function(err)
 	{
 		console.log(err);
@@ -307,68 +290,50 @@ SchedulerConversation.prototype.update = function()
 		return;
 	}
 
-	this.handler = function(message)
-	{
-		switch(message)
-		{
-			case "1":
-				self.registerHistory(self.update.bind(self));
-				self.chooseDate();
-				break;
-			case "2":
-				self.registerHistory(self.update.bind(self));
-				self.chooseTime();
-				break;
-			case "3":
-				self.registerHistory(self.update.bind(self));
-				self.chooseLocation();
-				break;
-			case "4":
-				save();
-				break;
-			case "5":
-				cancel();
-				break;
-			default:
-				self.sendMessage(message + " is invalid.  " + output);
-				break;
-		}
-	}
-
-	var save = function()
-	{
-		self.datastore.setEvent(self.state.event).then(function()
-		{
-			self.sendMessage("Scrim updated.");
-			self.cancel();
-		}, function(err)
-		{
-			console.log("Failed to save event: " + err);
-			self.cancel();
-		});
-	}
-
-	var cancel = function()
-	{
-		self.datastore.cancelEvent(self.state.event).then(function()
-		{
-			self.sendMessage("Scrim cancelled.");
-			self.cancel();
-		}, function(err)
-		{
-			console.log("Failed to save event: " + err);
-			self.cancel();
-		});
-	}
-
-	var output = "What do you want to change?\n\
-	1: Date: " + this.state.event.start.format("dddd, MMM Do") + "\n\
-	2: Time: " + this.state.event.start.format("h:mm A") + "\n\
-	3: Location: " + this.state.event.location + "\n\
-	4: Save changes\n\
-	5: Cancel scrim";
-
-	this.sendMessage(output);
+	this.makeMenu({
+		label: "What do you want to change?",
+		listOptions: [
+			{ label: "Date: " + this.state.event.start.format("dddd, MMM Do") + ".", action: function ()
+				{
+					self.registerHistory(self.update.bind(self));
+					self.chooseDate();
+				}},
+			{ label: "Time: " + this.state.event.start.format("h:mm A") + ".", action: function ()
+				{
+					self.registerHistory(self.update.bind(self));
+					self.chooseTime();
+				}},
+			{ label: "Location: " + this.state.event.location + ".", action: function ()
+				{
+					self.registerHistory(self.update.bind(self));
+					self.chooseServer();
+				}},
+			{ label: "Save changes.", action: function ()
+				{
+					self.datastore.setEvent(self.state.event).then(function()
+					{
+						self.sendMessage("Scrim updated.");
+						self.cancel();
+					}, function(err)
+					{
+						console.log("Failed to save event: " + err);
+						self.cancel();
+					});
+				}},
+			{ label: "Cancel scrim.", action: function ()
+				{
+					self.datastore.cancelEvent(self.state.event).then(function()
+					{
+						self.sendMessage("Scrim cancelled.");
+						self.cancel();
+					}, function(err)
+					{
+						console.log("Failed to save event: " + err);
+						self.cancel();
+					});
+				}}
+		]
+	});
 }
 
 module.exports = SchedulerConversation;

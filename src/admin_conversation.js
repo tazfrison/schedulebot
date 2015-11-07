@@ -77,38 +77,28 @@ AdminConversation.prototype.modifyPlayerTeams = function(asScheduler, remove)
 			});
 		}
 	}
-	this.handler = function(message)
-	{
-		var input = message * 1 - 1;
-		if(!isNaN(input) && input >= 0 && input < teams.length)
-		{
-			if(remove)
-				self.state.player.removeTeam(teams[input], asScheduler);
-			else
-				self.state.player.addTeam(teams[input], asScheduler);
-			self.datastore.saveTeamData();
-			self.back();
-		}
-		else
-		{
-			self.sendMessage(input + " is invalid.  " + output);
-		}
-	};
 
-	var counter = 1;
-	var output = "Which team do you want to "
-		+ (remove
-			? ("remove " + this.state.player.name + " from")
-			: ("add " + this.state.player.name + " to"))
-		+ " as "
-		+ (asScheduler ? "scheduler" : "player")
-		+ "?\n";
-
-	output += teams.map(function(team)
-	{
-		return "\t" + counter++ + ": " + team.name;
-	}).join("\n");
-	this.sendMessage(output);
+	this.makeMenu({
+		label: "Which team do you want to "
+			+ (remove
+				? ("remove " + this.state.player.name + " from")
+				: ("add " + this.state.player.name + " to"))
+			+ " as "
+			+ (asScheduler ? "scheduler" : "player")
+			+ "?",
+		listOptions: teams.map(function(team)
+		{
+			return { label: team.name, action: function()
+			{
+				if(remove)
+					self.state.player.removeTeam(team, asScheduler);
+				else
+					self.state.player.addTeam(team, asScheduler);
+				self.datastore.saveTeamData();
+				self.back();
+			}};
+		})
+	});
 }
 
 AdminConversation.prototype.choosePlayer = function()
@@ -116,35 +106,23 @@ AdminConversation.prototype.choosePlayer = function()
 	var self = this;
 	var players = this.datastore.getPlayers();
 
-	var counter = 1;
-
-	this.handler = function(message)
-	{
-		var input = message * 1 - 1;
-		if(!isNaN(input) && input >= 0 && input <= players.length)
-		{
-			self.registerHistory(self.choosePlayer.bind(self));
-			if(input === players.length)
+	this.makeMenu({
+		label: "Choose a player:",
+		listOptions: players
+			.map(function(player)
 			{
-				self.createPlayer();
-				return;
-			}
-			self.state.player = players[input];
-			self.modifyPlayer();
-		}
-		else
-		{
-			self.sendMessage(input + " is invalid.  " + output);
-		}
-	};
-
-	var output = "Choose a player:\n\t" + players
-		.map(function(player)
-		{
-			return counter++ + ": " + player.name;
-		}).concat(counter + ": Create a new player").join("\n\t");
-
-	this.sendMessage(output);
+				return { label: player.name, action: function()
+				{
+					self.registerHistory(self.choosePlayer.bind(self));
+					self.state.player = player;
+					self.modifyPlayer();
+				}};
+			}).concat({ label: "Create a new player", action: function()
+				{
+					self.registerHistory(self.choosePlayer.bind(self));
+					self.createPlayer();
+				}})
+	});
 }
 
 AdminConversation.prototype.createPlayer = function()
@@ -173,69 +151,42 @@ AdminConversation.prototype.modifyPlayer = function()
 		return;
 	}
 
-	this.handler = function(message)
-	{
-		switch(message)
-		{
-			case "1":
-				self.registerHistory(self.modifyPlayer.bind(self));
-				self.modifyPlayerTeams(false, false);
-				break;
-			case "2":
-				self.registerHistory(self.modifyPlayer.bind(self));
-				self.modifyPlayerTeams(false, true);
-				break;
-			case "3":
-				self.registerHistory(self.modifyPlayer.bind(self));
-				self.modifyPlayerTeams(true, false);
-				break;
-			case "4":
-				self.registerHistory(self.modifyPlayer.bind(self));
-				self.modifyPlayerTeams(true, true);
-				break;
-			case "5":
-				toggleAdmin();
-				break;
-			case "6":
-				deletePlayer();
-				break;
-			default:
-				self.sendMessage(message + " is invalid.  " + util.format(output,
-					self.state.player.name,
-					(self.state.player.admin ? "Remove" : "Make")));
-							break;
-		}
-	}
-
-	var toggleAdmin = function()
-	{
-		self.state.player.admin = !self.state.player.admin;
-
-		self.datastore.saveTeamData();
-
-		self.sendMessage(util.format(output,
-			self.state.player.name,
-			(self.state.player.admin ? "Remove" : "Make")));
-	}
-
-	var deletePlayer = function()
-	{
-		self.datastore.deletePlayer(self.state.player.id);
-		self.cancel();
-	}
-
-	var output = "What do you want to change about %s?\n\
-	1: Add to team as player.\n\
-	2: Remove from team as player.\n\
-	3: Add to team as scheduler.\n\
-	4: Remove from team as scheduler.\n\
-	5: %s admin.\n\
-	6: Remove player.";
-
-
-	this.sendMessage(util.format(output,
-		this.state.player.name,
-		(this.state.player.admin ? "Remove" : "Make")));
+	this.makeMenu({
+		label: "What do you want to change about " + this.state.player.name +"?",
+		listOptions: [
+			{ label: "Add to team as player.", action: function ()
+				{
+					self.registerHistory(self.modifyPlayer.bind(self));
+					self.modifyPlayerTeams(false, false);
+				}},
+			{ label: "Remove from team as player.", action: function ()
+				{
+					self.registerHistory(self.modifyPlayer.bind(self));
+					self.modifyPlayerTeams(false, true);
+				}},
+			{ label: "Add to team as scheduler.", action: function ()
+				{
+					self.registerHistory(self.modifyPlayer.bind(self));
+					self.modifyPlayerTeams(true, false);
+				}},
+			{ label: "Remove from team as scheduler.", action: function ()
+				{
+					self.registerHistory(self.modifyPlayer.bind(self));
+					self.modifyPlayerTeams(true, true);
+				}},
+			{ label: (this.state.player.admin ? "Remove" : "Make") + " admin.", action: function ()
+				{
+					self.state.player.admin = !self.state.player.admin;
+					self.datastore.saveTeamData();
+					self.modifyPlayer();
+				}},
+			{ label: "Delete player.", action: function ()
+				{
+					self.datastore.deletePlayer(self.state.player.id);
+					self.cancel();
+				}}
+		]
+	});
 }
 
 /* **********************************
@@ -273,75 +224,51 @@ AdminConversation.prototype.modifyTeamRoster = function(asScheduler, remove)
 			});
 		}
 	}
-	this.handler = function(message)
-	{
-		var input = message * 1 - 1;
-		if(!isNaN(input) && input >= 0 && input < players.length)
-		{
-			if(remove)
-				self.datastore.getPlayer(players[input].id).removeTeam(self.state.team, asScheduler);
-			else
-				self.datastore.getPlayer(players[input].id).addTeam(self.state.team, asScheduler);
-			self.datastore.saveTeamData();
-			self.back();
-		}
-		else
-		{
-			self.sendMessage(input + " is invalid.  " + output);
-		}
-	};
 
-	var counter = 1;
-	var output = "Which "
-		+ (asScheduler ? "scheduler" : "player")
-		+ " do you want to "
-		+ (remove
-			? ("remove from " + this.state.team.name)
-			: ("add to " + this.state.team.name))
-		+ "?\n";
-
-	output += players.map(function(player)
-	{
-		return "\t" + counter++ + ": " + player.name;
-	}).join("\n");
-	this.sendMessage(output);
+	this.makeMenu({
+		label: "Which "
+			+ (asScheduler ? "scheduler" : "player")
+			+ " do you want to "
+			+ (remove ? "remove from " : "add to ")
+			+ this.state.team.name + "?",
+		listOptions: players.map(function(player)
+		{
+			return { label: player.name, action: function()
+			{
+				if(remove)
+					player.removeTeam(self.state.team, asScheduler);
+				else
+					player.addTeam(self.state.team, asScheduler);
+				self.datastore.saveTeamData();
+				self.back();
+			}};
+		})
+	});
 }
 
 AdminConversation.prototype.selectTeam = function()
 {
 	var self = this;
 
-	var counter = 1;
-
 	var teams = this.datastore.getTeams();
 
-	this.handler = function(message)
-	{
-		var input = message * 1 - 1;
-		if(!isNaN(input) && input >= 0 && input <= teams.length)
-		{
-			self.registerHistory(self.selectTeam.bind(self));
-			if(input === teams.length)
+	this.makeMenu({
+		label: "Choose a team:",
+		listOptions: teams
+			.map(function(team)
 			{
-				self.createTeam();
-				return;
-			}
-			self.state.team = teams[input];
-			self.modifyTeam();
-		}
-		else
-		{
-			self.sendMessage(input + " is invalid.  " + output);
-		}
-	};
-
-	var output = "Choose a team:\n\t" + teams
-		.map(function(team)
-		{
-			return counter++ + ": " + team.name;
-		}).concat(counter + ": Create a new team").join("\n\t");
-
-	this.sendMessage(output);
+				return { label: team.name, action: function()
+				{
+					self.registerHistory(self.selectTeam.bind(self));
+					self.state.team = team;
+					self.modifyTeam();
+				}};
+			}).concat({ label: "Create a new team", action: function()
+				{
+					self.registerHistory(self.choosePlayer.bind(self));
+					self.createTeam();
+				}})
+	});
 }
 
 AdminConversation.prototype.createTeam = function()
@@ -384,72 +311,58 @@ AdminConversation.prototype.modifyTeam = function()
 		}
 	}
 
-	this.handler = function(message)
-	{
-		switch(message)
-		{
-			case "1":
-				self.registerHistory(self.modifyTeam.bind(self));
-				self.modifyTeamName();
-				break;
-			case "2":
-				self.registerHistory(self.modifyTeam.bind(self));
-				self.modifyTeamRoster(false, false);
-				break;
-			case "3":
-				self.registerHistory(self.modifyTeam.bind(self));
-				self.modifyTeamRoster(false, true);
-				break;
-			case "4":
-				self.registerHistory(self.modifyTeam.bind(self));
-				self.modifyTeamRoster(true, false);
-				break;
-			case "5":
-				self.registerHistory(self.modifyTeam.bind(self));
-				self.modifyTeamRoster(true, true);
-				break;
-			case "6":
-				self.registerHistory(self.modifyTeam.bind(self));
-				self.getServer(function(location)
+	this.makeMenu({
+		label: "What do you want to change about " + this.state.team.name +"?",
+		listOptions: [
+			{ label: "Change team name.", action: function ()
 				{
-					self.history.pop();
-					self.busy();
-					self.datastore.setTeamLocation(self.state.team.calendarId, location)
-						.then(self.modifyTeam.bind(this), function(err){console.log("error: " + err)});
-				});
-				break;
-			case "7":
-				deleteTeam();
-				break;
-			default:
-				self.sendMessage(message + " is invalid.  "
-					+ util.format(output, self.state.team.name, self.state.team.location));
-				break;
-		}
-	}
-
-	var deleteTeam = function()
-	{
-		self.datastore.deleteTeam(self.state.team.calendarId).then(function()
-		{
-			self.cancel();
-		}, function(err)
-		{
-			console.log("BAD STUFF " + err);
-			self.cancel();
-		});
-	}
-
-	var output = "What do you want to change about %s?\n\
-	1: Change team name.\n\
-	2: Add player to team.\n\
-	3: Remove player from team.\n\
-	4: Add scheduler to team.\n\
-	5: Remove scheduler from team.\n\
-	6: Change team location ( %s ).\n\
-	7: Delete team.";
-
-	this.sendMessage(util.format(output, this.state.team.name, this.state.team.location));
+					self.registerHistory(self.modifyTeam.bind(self));
+					self.modifyTeamName();
+				}},
+			{ label: "Add player to team.", action: function ()
+				{
+					self.registerHistory(self.modifyTeam.bind(self));
+					self.modifyTeamRoster(false, false);
+				}},
+			{ label: "Remove player from team.", action: function ()
+				{
+					self.registerHistory(self.modifyTeam.bind(self));
+					self.modifyTeamRoster(false, true);
+				}},
+			{ label: "Add scheduler to team.", action: function ()
+				{
+					self.registerHistory(self.modifyTeam.bind(self));
+					self.modifyTeamRoster(true, false);
+				}},
+			{ label: "Remove scheduler from team.", action: function ()
+				{
+					self.registerHistory(self.modifyTeam.bind(self));
+					self.modifyTeamRoster(true, true);
+				}},
+			{ label: "Change team location. (" + this.state.team.location + ")", action: function ()
+				{
+					self.registerHistory(self.modifyTeam.bind(self));
+					self.getServer(function(location)
+					{
+						self.history.pop();
+						self.busy();
+						self.datastore.setTeamLocation(self.state.team.calendarId, location)
+							.then(self.modifyTeam.bind(this), function(err){console.log("error: " + err)});
+					});
+				}},
+			{ label: "Delete team.", action: function ()
+				{
+					self.datastore.deleteTeam(self.state.team.calendarId).then(function()
+					{
+						self.cancel();
+					}, function(err)
+					{
+						console.log("BAD STUFF " + err);
+						self.cancel();
+					});
+				}}
+		]
+	});
 }
 
 module.exports = AdminConversation;
