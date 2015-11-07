@@ -267,7 +267,14 @@ ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 		}
 	}
 	log.write(this.friends.personaStates[steamId].player_name, message);
-	this.conversations[steamId].handleMessage(message);
+	try
+	{
+		this.conversations[steamId].handleMessage(message);
+	}
+	catch(e)
+	{
+		console.log(e);
+	}
 }
 
 module.exports = ScheduleBot;

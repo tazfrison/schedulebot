@@ -38,7 +38,12 @@ AdminConversation.prototype.getTeams = function()
 
 AdminConversation.prototype.schedule = function()
 {
-	this.chooseTeam(this.chooseDate.bind(this));
+	var self = this;
+	this.chooseTeam(function()
+	{
+		self.registerHistory(self.schedule.bind(self));
+		self.chooseDate.bind(self);
+	});
 }
 
 AdminConversation.prototype.modifyPlayerTeams = function(asScheduler, remove)
@@ -82,7 +87,7 @@ AdminConversation.prototype.modifyPlayerTeams = function(asScheduler, remove)
 			else
 				self.state.player.addTeam(teams[input], asScheduler);
 			self.datastore.saveTeamData();
-			self.modifyPlayer();
+			self.back();
 		}
 		else
 		{
@@ -111,7 +116,6 @@ AdminConversation.prototype.choosePlayer = function()
 	var self = this;
 	var players = this.datastore.getPlayers();
 
-
 	var counter = 1;
 
 	this.handler = function(message)
@@ -119,6 +123,7 @@ AdminConversation.prototype.choosePlayer = function()
 		var input = message * 1 - 1;
 		if(!isNaN(input) && input >= 0 && input <= players.length)
 		{
+			self.registerHistory(self.choosePlayer.bind(self));
 			if(input === players.length)
 			{
 				self.createPlayer();
@@ -173,15 +178,19 @@ AdminConversation.prototype.modifyPlayer = function()
 		switch(message)
 		{
 			case "1":
+				self.registerHistory(self.modifyPlayer.bind(self));
 				self.modifyPlayerTeams(false, false);
 				break;
 			case "2":
+				self.registerHistory(self.modifyPlayer.bind(self));
 				self.modifyPlayerTeams(false, true);
 				break;
 			case "3":
+				self.registerHistory(self.modifyPlayer.bind(self));
 				self.modifyPlayerTeams(true, false);
 				break;
 			case "4":
+				self.registerHistory(self.modifyPlayer.bind(self));
 				self.modifyPlayerTeams(true, true);
 				break;
 			case "5":
@@ -274,7 +283,7 @@ AdminConversation.prototype.modifyTeamRoster = function(asScheduler, remove)
 			else
 				self.datastore.getPlayer(players[input].id).addTeam(self.state.team, asScheduler);
 			self.datastore.saveTeamData();
-			self.modifyTeam();
+			self.back();
 		}
 		else
 		{
@@ -311,6 +320,7 @@ AdminConversation.prototype.selectTeam = function()
 		var input = message * 1 - 1;
 		if(!isNaN(input) && input >= 0 && input <= teams.length)
 		{
+			self.registerHistory(self.selectTeam.bind(self));
 			if(input === teams.length)
 			{
 				self.createTeam();
@@ -368,7 +378,7 @@ AdminConversation.prototype.modifyTeam = function()
 	{
 		if(this.state.team.location === false)
 		{
-			this.handler = this.busy.bind(this);
+			this.busy();
 			this.datastore.getTeamLocation(this.state.team.calendarId).then(this.modifyTeam.bind(this));
 			return;
 		}
@@ -379,24 +389,31 @@ AdminConversation.prototype.modifyTeam = function()
 		switch(message)
 		{
 			case "1":
+				self.registerHistory(self.modifyTeam.bind(self));
 				self.modifyTeamName();
 				break;
 			case "2":
+				self.registerHistory(self.modifyTeam.bind(self));
 				self.modifyTeamRoster(false, false);
 				break;
 			case "3":
+				self.registerHistory(self.modifyTeam.bind(self));
 				self.modifyTeamRoster(false, true);
 				break;
 			case "4":
+				self.registerHistory(self.modifyTeam.bind(self));
 				self.modifyTeamRoster(true, false);
 				break;
 			case "5":
+				self.registerHistory(self.modifyTeam.bind(self));
 				self.modifyTeamRoster(true, true);
 				break;
 			case "6":
+				self.registerHistory(self.modifyTeam.bind(self));
 				self.getServer(function(location)
 				{
-					self.handler = self.busy.bind(self);
+					self.history.pop();
+					self.busy();
 					self.datastore.setTeamLocation(self.state.team.calendarId, location)
 						.then(self.modifyTeam.bind(this), function(err){console.log("error: " + err)});
 				});

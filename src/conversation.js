@@ -11,12 +11,14 @@ function Conversation (id, datastore, sendMessage)
 	this.sendMessage = sendMessage;
 
 	this.commands = {
-		"commands": function()
+		"commands": { action: function()
 		{
 			self.sendMessage("Available commands:\n\t!" + Object.keys(self.commands).join("\n\t!"));
-		},
-		"whoami": this.whoami.bind(this),
-		"cancel": this.cancel.bind(this)
+		}, help: "Lists available commands.  Commands can be accessed at any point and generally do not rely on current menu position." },
+		"whoami": { action: this.whoami.bind(this), help: "Gives what information the schedulebot has about who you are." },
+		"cancel": { action: this.cancel.bind(this), help: "Ends the current menu process and goes back to the main menu." },
+		"back": { action: this.back.bind(this), help: "Goes back to the last valid menu.  Some menus are skipped when going backwards." },
+		"help": { action: this.help.bind(this), help: "Gives information on how to use the schedulebot.  Type '!help <command>' to get information on another command." }
 	};
 
 	this.playsOnPrimary = false;
@@ -40,6 +42,7 @@ function Conversation (id, datastore, sendMessage)
 
 	this.state = {};
 
+	this.history = [];
 	this.handler = this.mainmenu.bind(this);
 }
 
@@ -49,14 +52,57 @@ Conversation.prototype.cancel = function()
 	this.mainmenu();
 }
 
+Conversation.prototype.back = function()
+{
+	if(this.history.length > 0)
+		this.history.pop()();
+	else
+		this.cancel();
+}
+
+Conversation.prototype.help = function(command)
+{
+	if(command)
+	{
+		if(command.charAt(0) === "!")
+			command = command.slice(1);
+		if(this.commands[command])
+		{
+			if(this.commands[command].help)
+				this.sendMessage(this.commands[command].help);
+			else
+				this.sendMessage(command + " has no help instructions.");
+		}
+		else
+		{
+			this.sendMessage(command + " is not a valid command.");
+		}
+	}
+	else
+	{
+		this.sendMessage("Can you be helped?");
+	}
+}
+
+Conversation.prototype.registerHistory = function(state)
+{
+	this.history.push(state);
+}
+
 Conversation.prototype.busy = function()
 {
-	this.sendMessage("Please wait, the bot is busy.");
+	var self = this;
+	this.handler = function()
+	{
+		self.sendMessage("Please wait, the bot is busy.");
+	}
 }
 
 Conversation.prototype.mainmenu = function()
 {
 	var self = this;
+
+	this.history = [];
 
 	var counter = 1;
 	var output = "\n" + this.menuOptions
@@ -85,8 +131,8 @@ Conversation.prototype.handleMessage = function(message)
 Conversation.prototype.handleCommand = function(message)
 {
 	var input = message.split(" ", 1)[0].slice(1);
-	if(typeof this.commands[input] === "function")
-		this.commands[input](message);
+	if(typeof this.commands[input].action === "function")
+		this.commands[input].action(message.split(" ").slice(1).join(" "));
 	else
 	{
 		this.sendMessage(input + " is not a recognized command.");

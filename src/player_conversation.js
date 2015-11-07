@@ -25,7 +25,7 @@ PlayerConversation.prototype.getEvents = function()
 PlayerConversation.prototype.listScrims = function()
 {
 	var self = this;
-	this.handler = this.busy.bind(this);
+	this.busy();
 	this.getEvents().then(function(events)
 	{
 		var output = "Upcoming scrims:\n\t" + events.map(self.friendlyEvent).join("\n\t");

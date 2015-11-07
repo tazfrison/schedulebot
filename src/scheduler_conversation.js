@@ -94,9 +94,12 @@ SchedulerConversation.prototype.chooseDate = function()
 		{
 			self.state.event.setDate(moment(message, "M/D"));
 			if(self.state.event.id)
-				self.update();
+				self.back();
 			else
+			{
+				self.registerHistory(self.chooseDate.bind(self));
 				self.chooseTime();
+			}
 		}
 	};
 
@@ -119,9 +122,12 @@ SchedulerConversation.prototype.chooseTime = function()
 		{
 			self.state.event.setTime(moment(message, "H:mm"));
 			if(self.state.event.id)
-				self.update();
+				self.back();
 			else
+			{
 				self.chooseServer();
+				self.registerHistory(self.chooseTime.bind(self));
+			}
 		}
 	};
 
@@ -136,6 +142,7 @@ SchedulerConversation.prototype.getServer = function(next)
 	var response = {};
 	this.handler = function(message)
 	{
+		self.registerHistory(self.getServer.bind(self));
 		if(message.lastIndexOf("http://", 0) === 0)
 		{
 			message = message.slice(7);
@@ -156,7 +163,7 @@ SchedulerConversation.prototype.chooseServer = function()
 	var self = this;
 
 	var output;
-	this.handler = this.busy.bind(this);
+	this.busy();
 
 	Promise.all([
 		this.datastore.getTeamLocation(),
@@ -172,7 +179,7 @@ SchedulerConversation.prototype.chooseServer = function()
 			{
 				if(self.state.event.id)
 				{
-					self.update();
+					self.back();
 				}
 				else
 				{
@@ -200,6 +207,7 @@ SchedulerConversation.prototype.chooseServer = function()
 			}
 			else if(message === counter - 1)
 			{
+				self.registerHistory(self.chooseServer.bind(self));
 				self.getServer(function(location)
 				{
 					self.state.event.setLocation(location);
@@ -210,6 +218,7 @@ SchedulerConversation.prototype.chooseServer = function()
 			{
 				self.state.event.setLocation("");
 			}
+			self.registerHistory(self.chooseServer.bind(self));
 			next();
 		};
 
@@ -240,6 +249,8 @@ SchedulerConversation.prototype.chooseEvent = function()
 {
 	var self = this;
 
+	delete this.state.event;
+
 	this.getEvents().then(function(events)
 	{
 		var counter = 1;
@@ -250,6 +261,7 @@ SchedulerConversation.prototype.chooseEvent = function()
 			if(!isNaN(input) && input >= 0 && input < events.length)
 			{
 				self.state.event = events[input];
+				self.registerHistory(self.chooseEvent.bind(self));
 				self.update();
 			}
 			else
@@ -272,8 +284,15 @@ SchedulerConversation.prototype.chooseEvent = function()
 
 SchedulerConversation.prototype.schedule = function()
 {
+	var self = this;
 	if(this.schedulesForPrimary || this.player.schedulesFor.length > 1)
-		this.chooseTeam(this.chooseDate.bind(this));
+	{
+		this.chooseTeam(function()
+		{
+			self.registerHistory(self.schedule.bind(self));
+			self.chooseDate.bind(self);
+		});
+	}
 	else
 		this.chooseDate();
 }
@@ -293,12 +312,15 @@ SchedulerConversation.prototype.update = function()
 		switch(message)
 		{
 			case "1":
+				self.registerHistory(self.update.bind(self));
 				self.chooseDate();
 				break;
 			case "2":
+				self.registerHistory(self.update.bind(self));
 				self.chooseTime();
 				break;
 			case "3":
+				self.registerHistory(self.update.bind(self));
 				self.chooseLocation();
 				break;
 			case "4":
