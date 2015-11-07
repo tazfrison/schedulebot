@@ -49,6 +49,11 @@ Conversation.prototype.cancel = function()
 	this.mainmenu();
 }
 
+Conversation.prototype.busy = function()
+{
+	this.sendMessage("Please wait, the bot is busy.");
+}
+
 Conversation.prototype.mainmenu = function()
 {
 	var self = this;
@@ -63,7 +68,7 @@ Conversation.prototype.mainmenu = function()
 		if(!isNaN(input) && input > 0 && input <= self.menuOptions.length)
 			self.menuOptions[input - 1].action();
 		else
-			self.sendMessage("Option '" + message + "' not recognized.  Please choose from the list.");
+			self.sendMessage("Option '" + message + "' not recognized.  " + output);
 
 	};
 	this.sendMessage(output);
@@ -115,6 +120,11 @@ Conversation.prototype.whoami = function()
 Conversation.prototype.friendlyEvent = function(event)
 {
 	return event.start.format("M-D H:mm - ") + event.summary;
+}
+
+Conversation.prototype.makeLocationLink = function(location)
+{
+	return "steam://connect/" + location.address + "/" + location.password;
 }
 
 module.exports = Conversation;

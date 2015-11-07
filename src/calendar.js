@@ -116,7 +116,7 @@ Calendar.prototype.getLocation = function(calendarId)
 {
 	var self = this;
 	if(!calendarId)
-		calendarId = "primary";
+		return Promise.reject("No calendar id provided.");
 	return new Promise(function(resolve, reject)
 	{
 		self.calendar.calendarList.get({
@@ -134,14 +134,43 @@ Calendar.prototype.getLocation = function(calendarId)
 	});
 }
 
+Calendar.prototype.setLocation = function(calendarId, location)
+{
+	var self = this;
+	if(!calendarId)
+		return Promise.reject("No calendar id provided.");
+	return new Promise(function(resolve, reject)
+	{
+		self.calendar.calendars.patch({
+			auth: self.auth,
+			calendarId: calendarId,
+			resource: {
+				location: location
+			}
+		}, function(err, response)
+		{
+			if(err)
+			{
+				reject(err);
+				return;
+			}
+			resolve(response.location);
+		});
+	});
+}
+
 Calendar.prototype.getEvents = function(calendarId)
 {
 	var self = this;
+
+	if(!calendarId)
+		return Promise.reject("No calendar id provided.");
+
 	return new Promise(function(resolve, reject)
 	{
 		self.calendar.events.list({
 			auth: self.auth,
-			calendarId: calendarId || 'primary',
+			calendarId: calendarId,
 			timeMin: (new Date()).toISOString(),
 			maxResults: 10,
 			singleEvents: true,
@@ -165,11 +194,14 @@ Calendar.prototype.createEvent = function(event, calendarId)
 {
 	var self = this;
 
+	if(!calendarId)
+		return Promise.reject("No calendar id provided.");
+
 	return new Promise(function(resolve, reject)
 	{
 		self.calendar.events.insert({
 			auth: self.auth,
-			calendarId: calendarId || "primary",
+			calendarId: calendarId,
 			resource: event.objectify()
 		}, function(err, event)
 		{
@@ -184,6 +216,9 @@ Calendar.prototype.createEvent = function(event, calendarId)
 Calendar.prototype.modifyEvent = function(event, calendarId)
 {
 	var self = this;
+
+	if(!calendarId)
+		return Promise.reject("No calendar id provided.");
 
 	return new Promise(function(resolve, reject)
 	{
@@ -205,6 +240,9 @@ Calendar.prototype.modifyEvent = function(event, calendarId)
 Calendar.prototype.deleteEvent = function(event, calendarId)
 {
 	var self = this;
+
+	if(!calendarId)
+		return Promise.reject("No calendar id provided.");
 
 	return new Promise(function(resolve, reject)
 	{

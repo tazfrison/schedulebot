@@ -364,6 +364,15 @@ AdminConversation.prototype.modifyTeam = function()
 		this.selectTeam();
 		return;
 	}
+	else
+	{
+		if(this.state.team.location === false)
+		{
+			this.handler = this.busy.bind(this);
+			this.datastore.getTeamLocation(this.state.team.calendarId).then(this.modifyTeam.bind(this));
+			return;
+		}
+	}
 
 	this.handler = function(message)
 	{
@@ -385,17 +394,26 @@ AdminConversation.prototype.modifyTeam = function()
 				self.modifyTeamRoster(true, true);
 				break;
 			case "6":
+				self.getServer(function(location)
+				{
+					self.handler = self.busy.bind(self);
+					self.datastore.setTeamLocation(self.state.team.calendarId, location)
+						.then(self.modifyTeam.bind(this), function(err){console.log("error: " + err)});
+				});
+				break;
+			case "7":
 				deleteTeam();
 				break;
 			default:
-				self.sendMessage(message + " is invalid.  " + util.format(output, self.state.team.name));
+				self.sendMessage(message + " is invalid.  "
+					+ util.format(output, self.state.team.name, self.state.team.location));
 				break;
 		}
 	}
 
 	var deleteTeam = function()
 	{
-		self.datastore.deleteTeam(self.state.team).then(function()
+		self.datastore.deleteTeam(self.state.team.calendarId).then(function()
 		{
 			self.cancel();
 		}, function(err)
@@ -411,9 +429,10 @@ AdminConversation.prototype.modifyTeam = function()
 	3: Remove player from team.\n\
 	4: Add scheduler to team.\n\
 	5: Remove scheduler from team.\n\
-	6: Delete team.";
+	6: Change team location ( %s ).\n\
+	7: Delete team.";
 
-	this.sendMessage(util.format(output, this.state.team.name));
+	this.sendMessage(util.format(output, this.state.team.name, this.state.team.location));
 }
 
 module.exports = AdminConversation;

@@ -130,54 +130,110 @@ SchedulerConversation.prototype.chooseTime = function()
 	this.sendMessage(output);
 }
 
+SchedulerConversation.prototype.getServer = function(next)
+{
+	var self = this;
+	var response = {};
+	this.handler = function(message)
+	{
+		if(message.lastIndexOf("http://", 0) === 0)
+		{
+			message = message.slice(7);
+		}
+		response.address = message;
+		self.sendMessage("What is the password for :" + response.address);
+		self.handler = function(message)
+		{
+			response.password = message;
+			next(self.makeLocationLink(response));
+		}
+	}
+	this.sendMessage("What is the server address?");
+}
+
 SchedulerConversation.prototype.chooseServer = function()
 {
 	var self = this;
 
-	this.handler = function(message)
+	var output;
+	this.handler = this.busy.bind(this);
+
+	Promise.all([
+		this.datastore.getTeamLocation(),
+		this.datastore.getTeamLocation(this.state.team.calendarId)
+	]).then(function(locations)
 	{
-		switch(message.charAt(0))
+		var counter = 0;
+		var ourServer = locations[0] || false;
+		var theirServer = locations[1] || false;
+		self.handler = function(message)
 		{
-			case "1":
-				break;
-			case "2":
-				break;
-			case "3":
-				break;
-			case "4":
-				break;
-			default:
-				break;
-		}
-
-		self.state.event.setLocation("");
-
-		if(self.state.event.id)
-		{
-			self.update();
-		}
-		else
-		{
-			self.sendMessage("Creating scrim.");
-			self.datastore.setEvent(self.state.event).then(function(event)
+			var next = function()
 			{
-				console.log("Event added");
-				self.cancel();
-			}, function(err)
+				if(self.state.event.id)
+				{
+					self.update();
+				}
+				else
+				{
+					self.sendMessage("Creating scrim.");
+					self.datastore.setEvent(self.state.event).then(function(event)
+					{
+						console.log("Event added");
+						self.cancel();
+					}, function(err)
+					{
+						console.log("Event failed: " + err + "\n" + self.state.event);
+						self.cancel();
+					});
+				}
+			}
+
+			if(message === "1" && ourServer !== false)
 			{
-				console.log("Event failed: " + err + "\n" + self.state.event);
-				self.cancel();
-			});
+				self.state.event.setLocation(ourServer);
+			}
+			else if((message === "1" && theirServer !== false )
+				|| (message === "2" && counter === 4))
+			{
+				self.state.event.setLocation(theirServer);
+			}
+			else if(message === counter - 1)
+			{
+				self.getServer(function(location)
+				{
+					self.state.event.setLocation(location);
+					next();
+				});
+			}
+			else if(message === counter)
+			{
+				self.state.event.setLocation("");
+			}
+			next();
+		};
+
+		output = "What server?\n";
+
+		if(ourServer !== false)
+		{
+			output += ++counter + ": "
+				+ self.datastore.getPrimaryTeam().name
+				+ ". ( " + ourServer + " )\n";
 		}
-	};
 
-	var output = "What server?\n\
-	1: Ours ()\n\
-	2: Yours ()\n\
-	3: Other\n\
-	4: Skip for now";
+		if(theirServer !== false)
+		{
+			output += ++counter + ": "
+				+ self.state.team.name
+				+ ". ( " + theirServer + " )\n";
+		}
 
-	this.sendMessage(output);
+		output += ++counter + ": New server.\n";
+		output += ++counter + ": Skip for now.\n";
+
+		self.sendMessage(output);
+	});
 }
 
 SchedulerConversation.prototype.chooseEvent = function()

@@ -169,15 +169,54 @@ Datastore.prototype.createTeam = function(name)
 	});
 }
 
-Datastore.prototype.deleteTeam = function(team)
+Datastore.prototype.deleteTeam = function(id)
 {
 	var self = this;
 	return new Promise(function(resolve, reject)
 	{
-		self.deleteCalendar(team.calendarId).then(function()
+		self.deleteCalendar(id).then(function()
 		{
-			resolve(self.__teamdata.deleteTeam(team));
+			resolve(self.__teamdata.deleteTeam(id));
 		}, reject);
+	});
+}
+
+Datastore.prototype.getPrimaryTeam = function()
+{
+	return this.__teamdata.getPrimaryTeam();
+}
+
+Datastore.prototype.getTeam = function(id)
+{
+	return this.__teamdata.getTeam(id);
+}
+
+Datastore.prototype.getTeamLocation = function(id)
+{
+	var self = this;
+	if(!id)
+		id = "primary";
+	var team = this.__teamdata.getTeam(id);
+	if(team.location === false)
+	{
+		return this.__calendar.getLocation(id).then(function(location)
+		{
+			team.location = location;
+			return location;
+		});
+	}
+	return Promise.resolve(team.location);
+}
+
+Datastore.prototype.setTeamLocation = function(id, location)
+{
+	var self = this;
+	if(!id)
+		id = "primary";
+	return this.__calendar.setLocation(id, location).then(function(location)
+	{
+		self.__teamdata.getTeam(id).location = location;
+		return location;
 	});
 }
 

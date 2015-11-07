@@ -59,6 +59,11 @@ TeamData.prototype.save = function()
 	fs.writeFile(confPath, data);
 }
 
+TeamData.prototype.getPrimaryCalendar = function()
+{
+	return this.primaryTeam.calendarId;
+}
+
 TeamData.prototype.toString = function()
 {
 	var output = {
@@ -175,6 +180,11 @@ TeamData.prototype.getTeams = function()
 	return teams;
 }
 
+TeamData.prototype.getPrimaryTeam = function()
+{
+	return this.primaryTeam;
+}
+
 TeamData.prototype.getTeam = function(id)
 {
 	return this.teams[id];
@@ -199,6 +209,7 @@ TeamData.Team = function(data, players)
 	this.calendarId = data.calendarId;
 	this.roster = [];
 	this.schedulers = [];
+	this.location = false;
 
 	if(data.roster)
 	{
