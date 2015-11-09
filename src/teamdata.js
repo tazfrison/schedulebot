@@ -11,6 +11,7 @@ function TeamData()
 	this.players = {};
 	this.admins = [];
 	this.primaryTeam;
+	this.availability;
 }
 
 TeamData.prototype.init = function()
@@ -49,6 +50,9 @@ TeamData.prototype.load = function()
 		if(data.teams[key].primary)
 			self.primaryTeam = self.teams[key];
 	});
+
+	this.availability = data.availability;
+
 	return Promise.resolve(true);
 }
 
@@ -59,16 +63,12 @@ TeamData.prototype.save = function()
 	fs.writeFile(confPath, data);
 }
 
-TeamData.prototype.getPrimaryCalendar = function()
-{
-	return this.primaryTeam.calendarId;
-}
-
 TeamData.prototype.toString = function()
 {
 	var output = {
 		players: {},
-		teams: {}
+		teams: {},
+		availability: this.availability
 	};
 
 	for(var player in this.players)
@@ -194,6 +194,16 @@ TeamData.prototype.getTeamCalendars = function()
 {
 
 	return Object.keys(this.teams);
+}
+
+TeamData.prototype.getPrimaryCalendar = function()
+{
+	return this.primaryTeam.calendarId;
+}
+
+TeamData.prototype.getAvailabilityCalendar = function()
+{
+	return this.availability;
 }
 
 /* **************************

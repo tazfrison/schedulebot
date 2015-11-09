@@ -1,6 +1,7 @@
 var fs = require("fs");
 var path = require("path");
 var readline = require("readline");
+var util = require("util");
 
 var moment = require("moment");
 var Promise = require("promise");
@@ -12,6 +13,8 @@ var TOKEN_DIR = path.join(path.dirname(fs.realpathSync(__filename)), "../resourc
 var TOKEN_PATH = path.join(TOKEN_DIR, "calendar-nodejs-schedulebot.json");
 
 var CLIENT_AUTH = path.join(TOKEN_DIR, "client_secret.json");
+
+var EVENT_LENGTH = {minutes: 30};
 
 function Calendar()
 {
@@ -112,6 +115,84 @@ Calendar.prototype.getCalendars = function()
 	});
 }
 
+Calendar.prototype.getBusyTimes = function(ids, min, max)
+{
+	var self = this;
+	if(!ids || ids.length === 0)
+		return Promise.reject("No calendar ids provided.");
+	return new Promise(function(resolve, reject)
+	{
+		self.calendar.calendarList.get({
+			auth: self.auth,
+			timeMin: min.format(),
+			timeMax: max.format(),
+			items: ids.map(function(id){ return { id: id }; })
+		}, function(err, response)
+		{
+			if(err)
+			{
+				reject(err);
+				return;
+			}
+			var busy = [];
+			for(var key in response.calendars)
+			{
+				var calendar = response.calendars[key];
+				if(calendar.errors && calendar.errors.length > 0)
+				{
+					console.log(calendar.errors);
+				}
+				else
+				{
+					[].push.apply(busy, calendar.busy.map(function(time)
+					{
+						return {
+							calendarId: key,
+							start: moment(time.start),
+							end: moment(time.end)
+						};
+					}));
+				}
+				push.sort(function(a, b)
+				{
+					if(a.start.isBefore(b.start))
+						return -1;
+					else if(a.start.isSame(b.start))
+						return 0;
+					else
+						return 1;
+				});
+			}
+			resolve(busy);
+		});
+	});
+}
+
+Calendar.prototype.getFreeTimes = function(ids, min, max)
+{
+	var self = this;
+	if(!ids || ids.length === 0)
+		return Promise.reject("No calendar ids provided.");
+	return this.getBusyTimes.then(function(busy)
+	{
+		var free = [];
+		var start;
+		busy.forEach(function(time)
+		{
+			if(time.end.isBefore(start))
+			{
+				return;
+			}
+			else if(time.start.isAfter(start))
+			{
+				free.push({start: start, end: time.start});
+			}
+			start = time.end;
+		});
+		return free;
+	});
+}
+
 Calendar.prototype.getLocation = function(calendarId)
 {
 	var self = this;
@@ -119,7 +200,7 @@ Calendar.prototype.getLocation = function(calendarId)
 		return Promise.reject("No calendar id provided.");
 	return new Promise(function(resolve, reject)
 	{
-		self.calendar.calendarList.get({
+		self.calendar.freebusy.query({
 			auth: self.auth,
 			calendarId: calendarId
 		}, function(err, response)
@@ -260,6 +341,10 @@ Calendar.prototype.deleteEvent = function(event, calendarId)
 	})
 }
 
+/* *******************************
+				EVENT
+******************************* */
+
 Calendar.Event = function(calendarId, event)
 {
 	this.calendarId = calendarId || false;
@@ -306,7 +391,7 @@ Calendar.Event.prototype.objectify = function()
 			"timeZone": "America/Los_Angeles"
 		},
 		"end": {
-			"dateTime": this.start.add(30, "minutes").format(),
+			"dateTime": this.start.add(EVENT_LENGTH).format(),
 			"timeZone": "America/Los_Angeles"
 		}
 	};
@@ -322,6 +407,10 @@ Calendar.Event.prototype.toString = function()
 {
 	return JSON.stringify(this.objectify());
 }
+
+/* *******************************
+			AUTHORIZATION
+******************************* */
 
 /**
  * Create an OAuth2 client with the given credentials, and then execute the

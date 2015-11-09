@@ -16,13 +16,6 @@ function AdminConversation()
 
 util.inherits(AdminConversation, SchedulerConversation);
 
-AdminConversation.prototype.cancel = function()
-{
-	delete this.state.player;
-	delete this.state.team;
-	AdminConversation.super_.prototype.cancel.call(this);
-}
-
 AdminConversation.prototype.getEvents = function()
 {
 	return this.datastore.getEvents();

@@ -21,25 +21,6 @@ function Conversation (id, datastore, sendMessage)
 		"help": { action: this.help.bind(this), help: "Gives information on how to use the schedulebot.  Type '!help <command>' to get information on another command." }
 	};
 
-	this.playsOnPrimary = false;
-	this.player.playsOn.every(function(team)
-	{
-		if(team.primary)
-		{
-			self.playsOnPrimary = true;
-			return false;
-		}
-	});
-	this.schedulesForPrimary = false;
-	this.player.schedulesFor.every(function(team)
-	{
-		if(team.primary)
-		{
-			self.schedulesForPrimary = true;
-			return false;
-		}
-	});
-
 	this.state = {};
 
 	this.history = [];

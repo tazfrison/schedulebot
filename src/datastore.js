@@ -123,6 +123,18 @@ Datastore.prototype.cancelEvent = function(event)
 	return this.__calendar.deleteEvent(event, event.calendarId);
 }
 
+Datastore.prototype.getFreeTimes = function(min, max)
+{
+	if(!min)
+		min = moment();
+	if(!max)
+		max = moment(min).add(1, "day");
+	var calendars = this.__teamdata.getTeamCalendars()
+		.concat(this.__teamdata.getAvailabilityCalendar())
+		.concat(this.__teamdata.getPrimaryCalendar());
+	return this.__calendar.getFreeTimes(calendars, min, max);
+}
+
 /* **********************************
         TEAMDATA MODIFICATIONS
 ********************************** */

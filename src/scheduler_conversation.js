@@ -12,15 +12,19 @@ function SchedulerConversation()
 		{label: "Schedule a new scrim.", action: this.schedule.bind(this)},
 		{label: "Modify an existing scrim.", action: this.update.bind(this)}
 	]);
+
+	this.schedulesForPrimary = false;
+	this.player.schedulesFor.every(function(team)
+	{
+		if(team.primary)
+		{
+			self.schedulesForPrimary = true;
+			return false;
+		}
+	});
 }
 
 util.inherits(SchedulerConversation, PlayerConversation);
-
-SchedulerConversation.prototype.cancel = function()
-{
-	delete this.state.event;
-	this.mainmenu();
-}
 
 SchedulerConversation.prototype.getTeams = function(schedulerOnly)
 {
