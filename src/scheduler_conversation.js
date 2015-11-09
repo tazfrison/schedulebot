@@ -183,6 +183,7 @@ SchedulerConversation.prototype.chooseServer = function()
 				self.datastore.setEvent(self.state.event).then(function(event)
 				{
 					console.log("Event added");
+					self.emit("schedule", event);
 					self.cancel();
 				}, function(err)
 				{
@@ -317,6 +318,7 @@ SchedulerConversation.prototype.update = function()
 					self.datastore.setEvent(self.state.event).then(function()
 					{
 						self.sendMessage("Scrim updated.");
+						self.emit("reschedule", self.state.event);
 						self.cancel();
 					}, function(err)
 					{
@@ -329,6 +331,7 @@ SchedulerConversation.prototype.update = function()
 					self.datastore.cancelEvent(self.state.event).then(function()
 					{
 						self.sendMessage("Scrim cancelled.");
+						self.emit("cancel", self.state.event);
 						self.cancel();
 					}, function(err)
 					{

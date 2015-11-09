@@ -289,7 +289,7 @@ Calendar.prototype.createEvent = function(event, calendarId)
 			if(err)
 				reject(err);
 			else
-				resolve(event);
+				resolve(new Calendar.Event(calendarId, event));
 		});
 	})
 }
@@ -313,7 +313,7 @@ Calendar.prototype.modifyEvent = function(event, calendarId)
 			if(err)
 				reject(err);
 			else
-				resolve(event);
+				resolve(new Calendar.Event(calendarId, event));
 		});
 	});
 }

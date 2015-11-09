@@ -1,3 +1,6 @@
+var EventEmitter = require("events");
+var util = require("util");
+
 var moment = require("moment");
 
 function Conversation (id, datastore, sendMessage)
@@ -25,7 +28,11 @@ function Conversation (id, datastore, sendMessage)
 
 	this.history = [];
 	this.handler = this.mainmenu.bind(this);
+
+	EventEmitter.call(this);
 }
+
+util.inherits(Conversation, EventEmitter);
 
 Conversation.prototype.cancel = function()
 {

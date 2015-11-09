@@ -238,33 +238,7 @@ ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 	var log = this.datastore.getLog(steamId);
 	if(!this.conversations[steamId])
 	{
-		var self = this;
-		var player = this.datastore.getPlayer(steamId);
-		var conversationType = false;
-		if(player)
-		{
-			if(player.admin)
-				conversationType = AdminConversation;
-			else if(player.schedulesFor.length > 0)
-				conversationType = SchedulerConversation;
-			else if(player.playsOn.length > 0)
-				conversationType = PlayerConversation;
-		}
-		if(conversationType === false)
-		{
-			var message = "You are unregistered with this bot.  Please contact an admin or your team's scheduler to be added to the bot.";
-			log.write(this.me.player_name, message);
-			this.friends.sendMessage(steamId, message, Steam.EChatEntryType.ChatMsg);
-		}
-		else
-		{
-			this.conversations[steamId] = new conversationType(
-				steamId, this.datastore, function(message)
-				{
-					log.write(self.me.player_name, message);
-					self.friends.sendMessage(steamId, message, Steam.EChatEntryType.ChatMsg);
-				});
-		}
+		this.newConversation(steamId);
 	}
 	log.write(this.friends.personaStates[steamId].player_name, message);
 	try
@@ -275,6 +249,65 @@ ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 	{
 		console.log(e.message, e.stack);
 	}
+}
+
+ScheduleBot.prototype.newConversation = function(steamId)
+{
+	var self = this;
+	var player = this.datastore.getPlayer(steamId);
+	var conversationType = false;
+	if(player)
+	{
+		if(player.admin)
+			conversationType = AdminConversation;
+		else if(player.schedulesFor.length > 0)
+			conversationType = SchedulerConversation;
+		else if(player.playsOn.length > 0)
+			conversationType = PlayerConversation;
+	}
+	if(conversationType === false)
+	{
+		var unregistered = "You are unregistered with this bot.  Please contact an admin or your team's scheduler to be added to the bot.";
+		log.write(this.me.player_name, unregistered);
+		this.friends.sendMessage(steamId, unregistered, Steam.EChatEntryType.ChatMsg);
+	}
+	else
+	{
+		this.conversations[steamId] = new conversationType(
+			steamId, this.datastore, function(message)
+			{
+				log.write(self.me.player_name, message);
+				self.friends.sendMessage(steamId, message, Steam.EChatEntryType.ChatMsg);
+			});
+		this.conversations[steamId].on("schedule", function(event)
+		{
+
+		}).on("reschedule", function(event)
+		{
+
+		}).on("cancel", function(event)
+		{
+
+		});
+	}
+}
+
+ScheduleBot.prototype.notifyTeam = function()
+{
+	var self = this;
+	var team = this.datastore.getPrimaryTeam();
+	var ids = team.roster.concat(team.schedulers).map(function(person)
+	{
+		return person.id;
+	});
+	ids.forEach(function(id)
+	{
+		if(!self.conversations[id])
+		{
+			self.newConversation(id);
+		}
+		self.conversations[id].interrupt();
+	});
 }
 
 module.exports = ScheduleBot;
