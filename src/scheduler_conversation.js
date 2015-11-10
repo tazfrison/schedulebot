@@ -7,6 +7,8 @@ var Event = require("./calendar.js").Event;
 
 function SchedulerConversation()
 {
+	var self = this;
+
 	PlayerConversation.apply(this, arguments);
 	this.menuOptions = this.menuOptions.concat([
 		{label: "Schedule a new scrim.", action: this.schedule.bind(this)},
@@ -59,6 +61,8 @@ SchedulerConversation.prototype.chooseTeam = function(callback)
 
 	var teams = this.getTeams(true);
 
+	this.registerHistory(arguments)
+
 	this.makeMenu({
 		label: "What team is this scrim against?",
 		listOptions: teams.map(function(team)
@@ -78,6 +82,8 @@ SchedulerConversation.prototype.chooseDate = function()
 {
 	var self = this;
 
+	this.registerHistory(arguments);
+
 	this.handler = function(message)
 	{
 		if(false)
@@ -91,7 +97,6 @@ SchedulerConversation.prototype.chooseDate = function()
 				self.back();
 			else
 			{
-				self.registerHistory(self.chooseDate.bind(self));
 				self.chooseTime();
 			}
 		}
@@ -105,6 +110,8 @@ SchedulerConversation.prototype.chooseDate = function()
 SchedulerConversation.prototype.chooseTime = function()
 {
 	var self = this;
+
+	this.registerHistory(arguments);
 
 	this.handler = function(message)
 	{
@@ -120,7 +127,6 @@ SchedulerConversation.prototype.chooseTime = function()
 			else
 			{
 				self.chooseServer();
-				self.registerHistory(self.chooseTime.bind(self));
 			}
 		}
 	};
@@ -133,10 +139,13 @@ SchedulerConversation.prototype.chooseTime = function()
 SchedulerConversation.prototype.getServer = function(next)
 {
 	var self = this;
+
+	this.registerHistory(arguments);
+
 	var response = {};
 	this.handler = function(message)
 	{
-		self.registerHistory(self.getServer.bind(self));
+		self.registerHistory(false);
 		if(message.lastIndexOf("http://", 0) === 0)
 		{
 			message = message.slice(7);
@@ -157,11 +166,13 @@ SchedulerConversation.prototype.chooseServer = function()
 	var self = this;
 
 	var output;
+
+	this.registerHistory(arguments);
 	this.busy();
 
 	Promise.all([
 		this.datastore.getTeamLocation(this.datastore.getPrimaryTeam().calendarId),
-		this.datastore.getTeamLocation(this.state.event.calendarId)
+		this.datastore.getTeamLocation(this.state.event.calendarId || this.state.team.calendarId)
 	]).then(function(locations)
 	{
 		var ourServer = locations[0] || false;
@@ -175,10 +186,8 @@ SchedulerConversation.prototype.chooseServer = function()
 		}
 		else
 		{
-			next = function(register)
+			next = function()
 			{
-				if(register)
-					self.registerHistory(self.chooseServer.bind(self));
 				self.sendMessage("Creating scrim.");
 				self.datastore.setEvent(self.state.event).then(function(event)
 				{
@@ -196,18 +205,15 @@ SchedulerConversation.prototype.chooseServer = function()
 		var options = [
 			{ label: "New server.", action: function()
 				{
-					self.registerHistory(self.chooseServer.bind(self));
 					self.getServer(function(location)
 					{
 						self.state.event.setLocation(location);
-						if(self.state.event.id)
-							self.history.pop();
 						next();
 					});
 				}},
 			{ label: "Skip for now.", action: function()
 				{
-					next(true);
+					next();
 				}
 			}
 		];
@@ -220,7 +226,7 @@ SchedulerConversation.prototype.chooseServer = function()
 				action: function()
 				{
 					self.state.event.setLocation(theirServer);
-					next(true);
+					next();
 				}
 			});
 		}
@@ -232,7 +238,7 @@ SchedulerConversation.prototype.chooseServer = function()
 				action: function()
 				{
 					self.state.event.setLocation(ourServer);
-					next(true);
+					next();
 				}
 			});
 		}
@@ -241,12 +247,17 @@ SchedulerConversation.prototype.chooseServer = function()
 			label: "What server?",
 			listOptions: options
 		});
+	}, function(err)
+	{
+		console.log(err, err.stack);
 	});
 }
 
 SchedulerConversation.prototype.chooseEvent = function()
 {
 	var self = this;
+
+	this.registerHistory(arguments);
 
 	delete this.state.event;
 
@@ -259,7 +270,6 @@ SchedulerConversation.prototype.chooseEvent = function()
 				return { label: self.friendlyEvent(event), action: function()
 				{
 					self.state.event = event;
-					self.registerHistory(self.chooseEvent.bind(self));
 					self.update();
 				}};
 			})
@@ -277,7 +287,6 @@ SchedulerConversation.prototype.schedule = function()
 	{
 		this.chooseTeam(function()
 		{
-			self.registerHistory(self.schedule.bind(self));
 			self.chooseDate.bind(self);
 		});
 	}
@@ -295,22 +304,21 @@ SchedulerConversation.prototype.update = function()
 		return;
 	}
 
+	this.registerHistory(arguments);
+
 	this.makeMenu({
 		label: "What do you want to change?",
 		listOptions: [
 			{ label: "Date: " + this.state.event.start.format("dddd, MMM Do") + ".", action: function ()
 				{
-					self.registerHistory(self.update.bind(self));
 					self.chooseDate();
 				}},
 			{ label: "Time: " + this.state.event.start.format("h:mm A") + ".", action: function ()
 				{
-					self.registerHistory(self.update.bind(self));
 					self.chooseTime();
 				}},
 			{ label: "Location: " + this.state.event.location + ".", action: function ()
 				{
-					self.registerHistory(self.update.bind(self));
 					self.chooseServer();
 				}},
 			{ label: "Save changes.", action: function ()

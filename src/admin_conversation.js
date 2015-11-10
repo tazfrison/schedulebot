@@ -34,14 +34,15 @@ AdminConversation.prototype.schedule = function()
 	var self = this;
 	this.chooseTeam(function()
 	{
-		self.registerHistory(self.schedule.bind(self));
-		self.chooseDate.bind(self);
+		self.chooseDate();
 	});
 }
 
 AdminConversation.prototype.modifyPlayerTeams = function(asScheduler, remove)
 {
 	var self = this;
+
+	this.registerHistory(arguments);
 
 	var teams = [];
 	var filter;
@@ -97,6 +98,11 @@ AdminConversation.prototype.modifyPlayerTeams = function(asScheduler, remove)
 AdminConversation.prototype.choosePlayer = function()
 {
 	var self = this;
+
+	this.registerHistory(arguments);
+
+	delete this.state.player;
+
 	var players = this.datastore.getPlayers();
 
 	this.makeMenu({
@@ -106,13 +112,11 @@ AdminConversation.prototype.choosePlayer = function()
 			{
 				return { label: player.name, action: function()
 				{
-					self.registerHistory(self.choosePlayer.bind(self));
 					self.state.player = player;
 					self.modifyPlayer();
 				}};
 			}).concat({ label: "Create a new player", action: function()
 				{
-					self.registerHistory(self.choosePlayer.bind(self));
 					self.createPlayer();
 				}})
 	});
@@ -121,6 +125,8 @@ AdminConversation.prototype.choosePlayer = function()
 AdminConversation.prototype.createPlayer = function()
 {
 	var self = this;
+
+	this.registerHistory(arguments);
 
 	this.handler = function(message)
 	{
@@ -144,27 +150,25 @@ AdminConversation.prototype.modifyPlayer = function()
 		return;
 	}
 
+	this.registerHistory(arguments);
+
 	this.makeMenu({
 		label: "What do you want to change about " + this.state.player.name +"?",
 		listOptions: [
 			{ label: "Add to team as player.", action: function ()
 				{
-					self.registerHistory(self.modifyPlayer.bind(self));
 					self.modifyPlayerTeams(false, false);
 				}},
 			{ label: "Remove from team as player.", action: function ()
 				{
-					self.registerHistory(self.modifyPlayer.bind(self));
 					self.modifyPlayerTeams(false, true);
 				}},
 			{ label: "Add to team as scheduler.", action: function ()
 				{
-					self.registerHistory(self.modifyPlayer.bind(self));
 					self.modifyPlayerTeams(true, false);
 				}},
 			{ label: "Remove from team as scheduler.", action: function ()
 				{
-					self.registerHistory(self.modifyPlayer.bind(self));
 					self.modifyPlayerTeams(true, true);
 				}},
 			{ label: (this.state.player.admin ? "Remove" : "Make") + " admin.", action: function ()
@@ -189,6 +193,8 @@ AdminConversation.prototype.modifyPlayer = function()
 AdminConversation.prototype.modifyTeamRoster = function(asScheduler, remove)
 {
 	var self = this;
+
+	this.registerHistory(arguments);
 
 	var players = [];
 	var filter;
@@ -243,6 +249,10 @@ AdminConversation.prototype.selectTeam = function()
 {
 	var self = this;
 
+	this.registerHistory(arguments);
+
+	delete this.state.team;
+
 	var teams = this.datastore.getTeams();
 
 	this.makeMenu({
@@ -252,13 +262,11 @@ AdminConversation.prototype.selectTeam = function()
 			{
 				return { label: team.name, action: function()
 				{
-					self.registerHistory(self.selectTeam.bind(self));
 					self.state.team = team;
 					self.modifyTeam();
 				}};
 			}).concat({ label: "Create a new team", action: function()
 				{
-					self.registerHistory(self.choosePlayer.bind(self));
 					self.createTeam();
 				}})
 	});
@@ -267,6 +275,8 @@ AdminConversation.prototype.selectTeam = function()
 AdminConversation.prototype.createTeam = function()
 {
 	var self = this;
+
+	this.registerHistory(arguments);
 
 	this.handler = function(message)
 	{
@@ -304,40 +314,35 @@ AdminConversation.prototype.modifyTeam = function()
 		}
 	}
 
+	this.registerHistory(arguments);
+
 	this.makeMenu({
 		label: "What do you want to change about " + this.state.team.name +"?",
 		listOptions: [
 			{ label: "Change team name.", action: function ()
 				{
-					self.registerHistory(self.modifyTeam.bind(self));
 					self.modifyTeamName();
 				}},
 			{ label: "Add player to team.", action: function ()
 				{
-					self.registerHistory(self.modifyTeam.bind(self));
 					self.modifyTeamRoster(false, false);
 				}},
 			{ label: "Remove player from team.", action: function ()
 				{
-					self.registerHistory(self.modifyTeam.bind(self));
 					self.modifyTeamRoster(false, true);
 				}},
 			{ label: "Add scheduler to team.", action: function ()
 				{
-					self.registerHistory(self.modifyTeam.bind(self));
 					self.modifyTeamRoster(true, false);
 				}},
 			{ label: "Remove scheduler from team.", action: function ()
 				{
-					self.registerHistory(self.modifyTeam.bind(self));
 					self.modifyTeamRoster(true, true);
 				}},
 			{ label: "Change team location. (" + this.state.team.location + ")", action: function ()
 				{
-					self.registerHistory(self.modifyTeam.bind(self));
 					self.getServer(function(location)
 					{
-						self.history.pop();
 						self.busy();
 						self.datastore.setTeamLocation(self.state.team.calendarId, location)
 							.then(self.modifyTeam.bind(this), function(err){console.log("error: " + err)});

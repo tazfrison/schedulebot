@@ -4,6 +4,8 @@ var Conversation = require("./conversation.js");
 
 function PlayerConversation()
 {
+	var self = this;
+
 	Conversation.apply(this, arguments);
 	this.menuOptions = [
 		{label: "List currently scheduled scrims.", action: this.listScrims.bind(this)}
@@ -44,7 +46,7 @@ PlayerConversation.prototype.listScrims = function()
 	{
 		var output = "Upcoming scrims:\n\t" + events.map(self.friendlyEvent).join("\n\t");
 		self.sendMessage(output);
-		self.mainmenu();
+		self.cancel();
 	},
 	function(err)
 	{

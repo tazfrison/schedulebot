@@ -42,10 +42,36 @@ Conversation.prototype.cancel = function()
 
 Conversation.prototype.back = function()
 {
-	if(this.history.length > 0)
-		this.history.pop()();
+	if(this.history.length > 1)
+	{
+		this.history.pop();
+		var history;
+		do
+		{
+			history = this.history[this.history.length - 1];
+			this.history.pop();
+		} while(history === false && this.history.length > 1);
+		history.state.apply(this, history.arguments);
+	}
 	else
 		this.cancel();
+}
+
+Conversation.prototype.registerHistory = function(args)
+{
+	if(args === false)
+		this.history.push(false);
+	else
+		this.history.push({state: args.callee, arguments: args});
+}
+
+Conversation.prototype.busy = function()
+{
+	var self = this;
+	this.handler = function()
+	{
+		self.sendMessage("Please wait, the bot is busy.");
+	}
 }
 
 Conversation.prototype.help = function(command)
@@ -69,20 +95,6 @@ Conversation.prototype.help = function(command)
 	else
 	{
 		this.sendMessage("Can you be helped?");
-	}
-}
-
-Conversation.prototype.registerHistory = function(state)
-{
-	this.history.push(state);
-}
-
-Conversation.prototype.busy = function()
-{
-	var self = this;
-	this.handler = function()
-	{
-		self.sendMessage("Please wait, the bot is busy.");
 	}
 }
 
@@ -116,6 +128,7 @@ Conversation.prototype.mainmenu = function()
 	var self = this;
 
 	this.history = [];
+	this.registerHistory(arguments);
 
 	this.makeMenu({
 		label: "Main menu:",

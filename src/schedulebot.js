@@ -256,6 +256,7 @@ ScheduleBot.prototype.newConversation = function(steamId)
 	var self = this;
 	var player = this.datastore.getPlayer(steamId);
 	var conversationType = false;
+	var log = this.datastore.getLog(steamId);
 	if(player)
 	{
 		if(player.admin)

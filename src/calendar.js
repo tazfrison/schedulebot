@@ -122,7 +122,7 @@ Calendar.prototype.getBusyTimes = function(ids, min, max)
 		return Promise.reject("No calendar ids provided.");
 	return new Promise(function(resolve, reject)
 	{
-		self.calendar.calendarList.get({
+		self.calendar.freebusy.query({
 			auth: self.auth,
 			timeMin: min.format(),
 			timeMax: max.format(),
@@ -200,7 +200,7 @@ Calendar.prototype.getLocation = function(calendarId)
 		return Promise.reject("No calendar id provided.");
 	return new Promise(function(resolve, reject)
 	{
-		self.calendar.freebusy.query({
+		self.calendar.calendarList.get({
 			auth: self.auth,
 			calendarId: calendarId
 		}, function(err, response)
