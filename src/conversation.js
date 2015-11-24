@@ -153,32 +153,47 @@ Conversation.prototype.help = function(command)
 Conversation.prototype.makeMenu = function(properties)
 {
 	var self = this;
+	this.busy();
 
-	var counter = 1;
-	var output = ( typeof properties.label === "function" ? properties.label(this.state) : properties.label )
-		+ "\n\t" + properties.listOptions
-			.map(function(option)
-			{
-				return counter++ + ": "
-					+ ( typeof option.label === "function" ? option.label(this.state) : option.label );
-			})
-			.join("\n\t");
-	this.handler = function(message)
+	var resolve = function(value)
 	{
-		var input = message * 1 - 1;
-		if(!isNaN(input) && input >= 0 && input < properties.listOptions.length)
-			properties.listOptions[input].action();
-		else
-			self.sendMessage(message + " is invalid.  " + output);
-
+		if(typeof value === "function")
+			value = value();
+		return Promise.resolve(value);
 	};
-	this.sendMessage(output);
+
+	var next = function(options)
+	{
+		var counter = 0;
+		var output = options.label
+			+ "\n\t" + options.listOptions
+				.map(function(option)
+				{
+					return ++counter + ": "
+						+ option.label;
+				})
+				.join("\n\t");
+		self.handler = function(message)
+		{
+			var input = message * 1 - 1;
+			if(!isNaN(input) && input >= 0 && input < options.listOptions.length)
+				options.listOptions[input].action();
+			else
+				self.sendMessage(message + " is invalid.  " + output);
+
+		};
+		self.sendMessage(output);
+	};
+
+	resolve(properties).then(next,
+		function(error)
+		{
+			throw error;
+		});
 }
 
 Conversation.prototype.mainmenu = function()
 {
-	var self = this;
-
 	this.history = [];
 	this.registerHistory(arguments);
 
