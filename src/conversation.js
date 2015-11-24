@@ -2,6 +2,7 @@ var EventEmitter = require("events");
 var util = require("util");
 
 var moment = require("moment");
+var Promise = require("promise");
 
 function Conversation (id, datastore, sendMessage)
 {
@@ -25,9 +26,9 @@ function Conversation (id, datastore, sendMessage)
 	};
 
 	this.state = {};
-
+	this.pending = [];
 	this.history = [];
-	this.handler = this.mainmenu.bind(this);
+	this.handler = this.resume.bind(this);
 
 	EventEmitter.call(this);
 }
@@ -72,6 +73,57 @@ Conversation.prototype.busy = function()
 	{
 		self.sendMessage("Please wait, the bot is busy.");
 	}
+}
+
+Conversation.prototype.delegate = function(subConversation)
+{
+	this.handleMessage = function(message)
+	{
+		subConversation.handleMessage(message);
+	}
+	subConversation.mainmenu();
+}
+
+Conversation.prototype.interrupt = function(incoming)
+{
+	var self = this;
+	this.busy();
+	if(typeof incoming === "string")
+	{
+		this.sendMessage(incoming);
+		this.resume();
+		return;
+	}
+	this.pending.push(incoming);
+	this.makeMenu({
+		label: incoming.label,
+		listOptions: [
+			{ label: "Handle now.", action: function()
+				{
+					self.delegate(incoming.action);
+				}},
+			{ label: "Save for later.", action: this.resume.bind(this) }
+		]
+	});
+}
+
+Conversation.prototype.resume = function()
+{
+	var self = this;
+	this.handleMessage = function(message)
+	{
+		if(message[0] === "!")
+			self.handleCommand(message);
+		else
+			self.handler(message);
+	}
+	var history = this.history.pop();
+	if(!history)
+	{
+		this.cancel();
+		return;
+	}
+	history.state.apply(this, history.arguments);
 }
 
 Conversation.prototype.help = function(command)
@@ -133,6 +185,28 @@ Conversation.prototype.mainmenu = function()
 	this.makeMenu({
 		label: "Main menu:",
 		listOptions: this.menuOptions
+	});
+}
+
+Conversation.prototype.listPending = function()
+{
+	var self = this;
+	if(this.pending.length === 0)
+	{
+		this.sendMessage("No pending messages.");
+		this.cancel();
+		return;
+	}
+	this.registerHistory(arguments);
+	this.makeMenu({
+		label: "",
+		listOptions: this.pending.map(function(pending)
+		{
+			return function()
+			{
+				self.delegate(pending);
+			}
+		})
 	});
 }
 

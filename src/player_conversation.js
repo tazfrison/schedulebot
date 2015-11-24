@@ -8,6 +8,7 @@ function PlayerConversation()
 
 	Conversation.apply(this, arguments);
 	this.menuOptions = [
+		{label: "List pending messages.", action: this.listPending.bind(this)},
 		{label: "List currently scheduled scrims.", action: this.listScrims.bind(this)}
 	];
 
