@@ -102,7 +102,7 @@ SchedulerConversation.prototype.chooseDate = function()
 		}
 	};
 
-	var output = "What date do you want to schedule for? (M/D): ";
+	var output = "What date do you want to schedule for? (M/D):";
 
 	this.sendMessage(output);
 }
@@ -131,7 +131,7 @@ SchedulerConversation.prototype.chooseTime = function()
 		}
 	};
 
-	var output = "What time on " + this.state.event.start.format("dddd, MMM Do") + "? (H:MM): ";
+	var output = "What time on " + this.state.event.start.format("dddd, MMM Do") + "? (H:MM):";
 
 	this.sendMessage(output);
 }
@@ -188,17 +188,9 @@ SchedulerConversation.prototype.chooseServer = function()
 		{
 			next = function()
 			{
-				self.sendMessage("Creating scrim.");
-				self.datastore.setEvent(self.state.event).then(function(event)
-				{
-					console.log("Event added");
-					self.emit("schedule", event);
-					self.cancel();
-				}, function(err)
-				{
-					console.log("Event failed: " + err + "\n" + self.state.event);
-					self.cancel();
-				});
+				self.sendMessage("Requesting scrim.");
+				self.emit("schedule", self.state.event);
+				self.cancel();
 			};
 		}
 
@@ -291,7 +283,12 @@ SchedulerConversation.prototype.schedule = function()
 		});
 	}
 	else
+	{
+		this.state.team = this.player.schedulesFor[0];
+		this.state.event = new Event(this.state.team.calendarId);
+		this.state.event.setSummary("Scrim vs " + this.state.team.name);
 		this.chooseDate();
+	}
 }
 
 SchedulerConversation.prototype.update = function()
@@ -321,31 +318,17 @@ SchedulerConversation.prototype.update = function()
 				{
 					self.chooseServer();
 				}},
-			{ label: "Save changes.", action: function ()
+			{ label: "Request changes.", action: function ()
 				{
-					self.datastore.setEvent(self.state.event).then(function()
-					{
-						self.sendMessage("Scrim updated.");
-						self.emit("reschedule", self.state.event);
-						self.cancel();
-					}, function(err)
-					{
-						console.log("Failed to save event: " + err);
-						self.cancel();
-					});
+					self.sendMessage("Requesting reschedule.");
+					self.emit("reschedule", self.state.event);
+					self.cancel();
 				}},
 			{ label: "Cancel scrim.", action: function ()
 				{
-					self.datastore.cancelEvent(self.state.event).then(function()
-					{
-						self.sendMessage("Scrim cancelled.");
-						self.emit("cancel", self.state.event);
-						self.cancel();
-					}, function(err)
-					{
-						console.log("Failed to save event: " + err);
-						self.cancel();
-					});
+					self.sendMessage("Scrim cancelled.");
+					self.emit("cancel", self.state.event);
+					self.cancel();
 				}}
 		]
 	});

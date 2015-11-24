@@ -24,8 +24,8 @@ Confirmation.prototype.mainmenu = function()
 			+ this.event.summary + " at "
 			+ this.event.start.format(),
 		listOptions: [
-			{label: "Accept scrim.", action: function(){console.log("emit: accept");self.emit("accept");}},
-			{label: "Reject scrim.", action: function(){console.log("emit: reject");self.emit("reject");}}
+			{label: "Accept scrim.", action: function(){self.emit("accept");}},
+			{label: "Reject scrim.", action: function(){self.emit("reject");}}
 		]
 	});
 }

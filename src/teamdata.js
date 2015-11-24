@@ -301,6 +301,14 @@ TeamData.Player.prototype.removeTeam = function(team, asScheduler)
 	}
 }
 
+TeamData.Player.prototype.isScheduler = function(teamId)
+{
+	return !this.schedulesFor.every(function(team)
+	{
+		return team.calendarId != teamId;
+	});
+}
+
 TeamData.Player.prototype.flatten = function()
 {
 	var output = {

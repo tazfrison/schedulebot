@@ -94,7 +94,6 @@ Conversation.prototype.interrupt = function(incoming)
 		this.resume();
 		return;
 	}
-	this.pending.push(incoming);
 	this.makeMenu({
 		label: incoming.label,
 		listOptions: [
@@ -102,7 +101,11 @@ Conversation.prototype.interrupt = function(incoming)
 				{
 					self.delegate(incoming.action);
 				}},
-			{ label: "Save for later.", action: this.resume.bind(this) }
+			{ label: "Save for later.", action: function()
+				{
+					self.pending.push(incoming);
+					self.resume();
+				}}
 		]
 	});
 }

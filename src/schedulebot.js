@@ -5,6 +5,8 @@ var readline = require("readline");
 var PlayerConversation = require("./player_conversation.js");
 var SchedulerConversation = require("./scheduler_conversation.js");
 var AdminConversation = require("./admin_conversation.js");
+var Confirmation = require("./confirmation.js");
+var Notification = require("./notification.js");
 
 function ScheduleBot(datastore)
 {
@@ -104,6 +106,13 @@ ScheduleBot.prototype.handleCommand = function(command)
 		var id = command[1];
 		this.friends.sendMessage(id, command.slice(2).join(" "), Steam.EChatEntryType.ChatMsg);
 	}
+	else if(command.lastIndexOf("status", 0) === 0)
+	{
+		command = command.split(" ");
+		var id = command[1];
+		var friend = this.datastore.getPlayer(id);
+		console.log(friend.name + " status: ", this.friends.personaStates[id]);
+	}
 }
 
 ScheduleBot.prototype.getUserName = function(id)
@@ -130,6 +139,18 @@ ScheduleBot.prototype.acceptFriend = function(id)
 		console.log("Player not in config: " + this.getUserName(id) + "(" + id + ")");
 	}
 }
+
+ScheduleBot.prototype.getStatus = function(steamId)
+{
+	if(!this.friends.personaStates[steamId])
+		return Steam.EPersonaState.Offline;
+	else
+		return this.friends.personaStates[steamId].persona_state;
+}
+
+/* **********************************
+			EVENT HANDLERS
+********************************** */
 
 ScheduleBot.prototype.onClientConnect = function()
 {
@@ -251,6 +272,21 @@ ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 	}
 }
 
+/* *******************************************
+				MESSAGE HANDLING
+******************************************* */
+
+ScheduleBot.prototype.sendMessage = function(steamId)
+{
+	var self = this;
+	var log = this.datastore.getLog(steamId);
+	return function(message)
+	{
+		log.write(self.me.player_name, message);
+		self.friends.sendMessage(steamId, message, Steam.EChatEntryType.ChatMsg);
+	};
+}
+
 ScheduleBot.prototype.newConversation = function(steamId)
 {
 	var self = this;
@@ -275,39 +311,178 @@ ScheduleBot.prototype.newConversation = function(steamId)
 	else
 	{
 		this.conversations[steamId] = new conversationType(
-			steamId, this.datastore, function(message)
-			{
-				log.write(self.me.player_name, message);
-				self.friends.sendMessage(steamId, message, Steam.EChatEntryType.ChatMsg);
-			});
+			steamId, this.datastore, this.sendMessage(steamId));
 		this.conversations[steamId].on("schedule", function(event)
 		{
-
+			var primaryId = self.datastore.getPrimaryTeam().calendarId;
+			var promises = [];
+			if(event.calendarId === primaryId)
+			{
+				self.updateEvent(event);
+				return;
+			}
+			if(!player.schedulesForPrimary)
+			{
+				//Confirm with primary team
+				promises.push(self.confirmEvent(event, player, primaryId));
+			}
+			if(!player.isScheduler(event.calendarId))
+			{
+				//Confirm with other team
+				promises.push(self.confirmEvent(event, player, event.calendarId));
+			}
+			Promise.all(promises).then(function(resolved)
+			{
+				self.updateEvent(event);
+				self.conversations[steamId].interrupt("Scrim accepted.");
+			}, function()
+			{
+				self.conversations[steamId].interrupt("Scrim rejected.");
+			});
 		}).on("reschedule", function(event)
 		{
-
+			var primaryId = self.datastore.getPrimaryTeam().calendarId;
+			var promises = [];
+			if(event.calendarId === primaryId)
+			{
+				self.updateEvent(event);
+				return;
+			}
+			if(!player.schedulesForPrimary)
+			{
+				//Confirm with primary team
+				promises.push(self.confirmEvent(event, player, primaryId));
+			}
+			if(!player.isScheduler(event.calendarId))
+			{
+				//Confirm with other team
+				promises.push(self.confirmEvent(event, player, event.calendarId));
+			}
+			Promise.all(promises).then(function(resolved)
+			{
+				self.updateEvent(event);
+				self.conversations[steamId].interrupt("Scrim accepted.");
+			}, function()
+			{
+				self.conversations[steamId].interrupt("Reschedule rejected.");
+			});
 		}).on("cancel", function(event)
 		{
-
+			self.datastore.cancelEvent(event).then(function()
+			{
+				var primaryId = self.datastore.getPrimaryTeam().calendarId;
+				self.notifyTeam(primaryId, event, "cancel");
+				if(event.calendarId !== primaryId)
+					self.notifyTeam(calendarId, event, "cancel");
+			}, function(err)
+			{
+				throw err;
+			})
 		});
 	}
 }
 
-ScheduleBot.prototype.notifyTeam = function()
+ScheduleBot.prototype.confirmEvent = function(event, scheduledBy, teamId)
 {
 	var self = this;
-	var team = this.datastore.getPrimaryTeam();
+
+	var requests = [];
+
+	var confirmation;
+
+	var team = this.datastore.getTeam(teamId);
+
+	var primary = teamId === this.datastore.getPrimaryTeam().calendarId;
+
+	var promises = [];
+
+	team.schedulers.forEach(function(scheduler)
+	{
+		if(self.getStatus(scheduler.id) !== Steam.EPersonaState.Online)
+			return;
+		confirmation = new Confirmation(scheduler.id,
+			self.datastore,
+			self.sendMessage(scheduler.id),
+			event);
+		promises.push(new Promise(function(resolve, reject)
+		{
+			confirmation.on("accept", function()
+			{
+				//TODO: delete confirmation obj
+				resolve();
+				self.conversations[scheduler.id].resume();
+			})
+			.on("reject", function()
+			{
+				self.conversations[scheduler.id].resume();
+				reject();
+			});
+		}));
+		if(!self.conversations[scheduler.id])
+		{
+			self.newConversation(scheduler.id);
+		}
+		self.conversations[scheduler.id].interrupt({
+			label: "Scrim against "
+				+ (primary
+					? self.datastore.getTeam(event.calendarId).name
+					: self.datastore.getPrimaryTeam().name)
+				+ " scheduled by " + scheduledBy.name,
+			action: confirmation
+		});
+	});
+
+	return Promise.race(promises);
+}
+
+ScheduleBot.prototype.notifyTeam = function(teamId, event, type)
+{
+	var self = this;
+	var team = this.datastore.getTeam(teamId);
 	var ids = team.roster.concat(team.schedulers).map(function(person)
 	{
 		return person.id;
 	});
+	var message;
+	if(type === "confirm")
+	{
+		message = event.summary + " scheduled for "
+			+ event.start.format("ddd, MMM Do, h:mm:ss a");
+	}
+	else if(type === "reminder")
+	{
+		message = "Reminder that " + event.summary
+			+ " is " + event.start.toNow()
+			+ " ( " + event.start.format("h:mm:ss a") +" )";
+	}
+	else if(type === "cancel")
+	{
+		message = event.summary + " on "
+			+ event.start.format("ddd, MMM Do")
+			+ " has been canceled.";
+	}
 	ids.forEach(function(id)
 	{
+		var log = self.datastore.getLog(id);
 		if(!self.conversations[id])
 		{
 			self.newConversation(id);
 		}
-		self.conversations[id].interrupt();
+
+		self.conversations[id].interrupt(message);
+	});
+}
+
+ScheduleBot.prototype.updateEvent = function(event)
+{
+	console.log("Creating event");
+	return this.datastore.setEvent(event).then(function(event)
+	{
+		//Notify teams
+		var primaryId = this.datastore.getPrimaryTeam().calendarId;
+		if(event.scheduleId !== primaryId)
+			this.notifyTeam(event.scheduleId, event, "confirm");
+		this.notifyTeam(primaryId, event, "confirm");
 	});
 }
 
