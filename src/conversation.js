@@ -94,6 +94,12 @@ Conversation.prototype.interrupt = function(incoming)
 		this.resume();
 		return;
 	}
+	incoming.action.on("return", function(finished)
+	{
+		if(!finished)
+			self.pending.push(incoming);
+		self.resume();
+	});
 	this.makeMenu({
 		label: incoming.label,
 		listOptions: [
@@ -218,11 +224,12 @@ Conversation.prototype.listPending = function()
 	this.registerHistory(arguments);
 	this.makeMenu({
 		label: "",
-		listOptions: this.pending.map(function(pending)
+		listOptions: this.pending.map(function(pending, index)
 		{
 			return function()
 			{
-				self.delegate(pending);
+				self.pending.splice(index, 1);
+				self.delegate(pending.action);
 			}
 		})
 	});

@@ -1,17 +1,17 @@
 var util = require("util");
 
-var SchedulerConversation = require("./scheduler_conversation.js");
+var Conversation = require("./conversation.js");
 
 function Confirmation(id, datastore, sendMessage, event)
 {
 	var self = this;
 
-	SchedulerConversation.apply(this, arguments);
+	Conversation.apply(this, arguments);
 
 	this.event = event;
 }
 
-util.inherits(Confirmation, SchedulerConversation);
+util.inherits(Confirmation, Conversation);
 
 Confirmation.prototype.mainmenu = function()
 {
@@ -24,10 +24,15 @@ Confirmation.prototype.mainmenu = function()
 			+ this.event.summary + " at "
 			+ this.event.start.format(),
 		listOptions: [
-			{label: "Accept scrim.", action: function(){self.emit("accept");}},
-			{label: "Reject scrim.", action: function(){self.emit("reject");}}
+			{label: "Accept scrim.", action: function(){self.emit("return", true);self.emit("accept");}},
+			{label: "Reject scrim.", action: function(){self.emit("return", true);self.emit("reject");}}
 		]
 	});
+}
+
+Confirmation.prototype.cancel = function()
+{
+	self.emit("return");
 }
 
 module.exports = Confirmation;
