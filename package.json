@@ -4,10 +4,12 @@
   "description": "Automated scheduler using Steam chat.  Originally developed for the Petting Tzu Team Fortress 2 team.",
   "author": "Thomas Frison",
   "main": "./lib/schedulebot",
+  "repository": "https://github.com/tazfrison/schedulebot",
   "dependencies": {
-    "google-auth-library": "^0.9.6",
+    "google-auth-library": "^0.9.7",
     "googleapis": "^2.1.6",
     "moment": "^2.10.6",
-    "steam": "^0.0"
+    "promise": "^7.0.4",
+    "steam": "^0.0.3"
   }
 }
