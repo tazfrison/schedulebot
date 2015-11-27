@@ -113,27 +113,66 @@ SchedulerConversation.prototype.chooseTime = function()
 
 	this.registerHistory(arguments);
 
-	this.handler = function(message)
+	this.busy();
+
+	this.datastore.getFreeTimes(moment(self.state.event.start.format("M/D/YYYY"), "M/D/YYYY")).then(function(times)
 	{
-		if(false)
+		if(times.length === 0)
 		{
-			self.sendMessage(message + " is not a valid time.  " + output);
+			self.sendMessage("No free times on " + self.state.event.start.format("dddd, MMM Do"));
+			self.back();
+			return;
 		}
-		else
+
+		self.handler = function(message)
 		{
-			self.state.event.setTime(moment(message, "H:mm"));
-			if(self.state.event.id)
-				self.back();
+			var time = moment(message, "H:mm")
+			var start = moment(self.state.event.start).set({
+				"hour": time.hour(),
+				"minute": time.minute(),
+				"second": time.second()
+			});
+			var end = moment(start).add(30, "minutes");
+			var invalid = true;
+			times.every(function(free)
+			{
+				if(free.start.isBefore(start) && free.end.isAfter(end))
+				{
+					invalid = false;
+					return false;
+				}
+				return true;
+			});
+			if(invalid)
+			{
+				self.sendMessage(message + " is not a valid time.  " + output);
+			}
 			else
 			{
-				self.chooseServer();
+				self.state.event.setTime(time);
+				if(self.state.event.id)
+					self.back();
+				else
+				{
+					self.chooseServer();
+				}
 			}
-		}
-	};
+		};
 
-	var output = "What time on " + this.state.event.start.format("dddd, MMM Do") + "? (H:MM):";
+		var format = "H:mm a";
+		var output = "Available times for " + self.state.event.start.format("dddd, MMM Do") + ":\n\t";
+		output += times.map(function(time)
+		{
+			return time.start.format(format) + " - " + time.end.format(format);
+		}).join("\n\t");
 
-	this.sendMessage(output);
+		output += "\nWhat time on " + self.state.event.start.format("dddd, MMM Do") + "? (H:MM):";
+
+		self.sendMessage(output);
+	}, function(err)
+	{
+		throw err;
+	});
 }
 
 SchedulerConversation.prototype.getServer = function(next)

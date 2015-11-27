@@ -124,9 +124,12 @@ Calendar.prototype.getBusyTimes = function(ids, min, max)
 	{
 		self.calendar.freebusy.query({
 			auth: self.auth,
-			timeMin: min.format(),
-			timeMax: max.format(),
-			items: ids.map(function(id){ return { id: id }; })
+			resource:{
+				timeMin: min.toISOString(),
+				timeMax: max.toISOString(),
+				timeZone: "UTC",
+				items: ids.map(function(id){ return { id: id }; })
+			}
 		}, function(err, response)
 		{
 			if(err)
@@ -153,7 +156,7 @@ Calendar.prototype.getBusyTimes = function(ids, min, max)
 						};
 					}));
 				}
-				push.sort(function(a, b)
+				busy.sort(function(a, b)
 				{
 					if(a.start.isBefore(b.start))
 						return -1;
@@ -173,10 +176,10 @@ Calendar.prototype.getFreeTimes = function(ids, min, max)
 	var self = this;
 	if(!ids || ids.length === 0)
 		return Promise.reject("No calendar ids provided.");
-	return this.getBusyTimes.then(function(busy)
+	return this.getBusyTimes(ids, min, max).then(function(busy)
 	{
 		var free = [];
-		var start;
+		var start = moment(min);
 		busy.forEach(function(time)
 		{
 			if(time.end.isBefore(start))
@@ -189,6 +192,8 @@ Calendar.prototype.getFreeTimes = function(ids, min, max)
 			}
 			start = time.end;
 		});
+		if(start.isBefore(max))
+			free.push({start: start, end: moment(max)});
 		return free;
 	});
 }

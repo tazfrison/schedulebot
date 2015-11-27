@@ -3,6 +3,7 @@ var path = require("path");
 var util = require("util");
 
 var Promise = require("promise");
+var moment = require("moment");
 
 var Calendar = require("./calendar.js");
 var TeamData = require("./teamdata.js");
@@ -130,9 +131,19 @@ Datastore.prototype.getFreeTimes = function(min, max)
 	if(!max)
 		max = moment(min).add(1, "day");
 	var calendars = this.__teamdata.getTeamCalendars()
-		.concat(this.__teamdata.getAvailabilityCalendar())
-		.concat(this.__teamdata.getPrimaryCalendar());
+		.concat(this.__teamdata.getAvailabilityCalendar());
 	return this.__calendar.getFreeTimes(calendars, min, max);
+}
+
+Datastore.prototype.getBusyTimes = function(min, max)
+{
+	if(!min)
+		min = moment();
+	if(!max)
+		max = moment(min).add(1, "day");
+	var calendars = this.__teamdata.getTeamCalendars()
+		.concat(this.__teamdata.getAvailabilityCalendar());
+	return this.__calendar.getBusyTimes(calendars, min, max);
 }
 
 /* **********************************
