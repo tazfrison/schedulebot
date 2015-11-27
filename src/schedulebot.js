@@ -87,6 +87,7 @@ ScheduleBot.prototype.loggedOn = function()
 
 ScheduleBot.prototype.handleCommand = function(command)
 {
+	var moment = require("moment");
 	var self = this;
 	if(command === "exit")
 	{
@@ -115,6 +116,24 @@ ScheduleBot.prototype.handleCommand = function(command)
 		var id = command[1];
 		var friend = this.datastore.getPlayer(id);
 		console.log(friend.name + " status: ", this.friends.personaStates[id]);
+	}
+	else if(command.lastIndexOf("getfree", 0) === 0)
+	{
+		command = command.split(" ");
+		var min = moment(command[1], "M/D");
+		this.datastore.getFreeTimes(min).then(function(times)
+			{
+				console.log(times.map(function(time){return time.start.format() + " - " + time.end.format()}));
+			}, console.log);
+	}
+	else if(command.lastIndexOf("getbusy", 0) === 0)
+	{
+		command = command.split(" ");
+		var min = moment(command[1], "M/D");
+		this.datastore.getBusyTimes(min).then(function(times)
+			{
+				console.log(times.map(function(time){return time.start.format() + " - " + time.end.format()}));
+			}, console.log);
 	}
 }
 
@@ -214,7 +233,7 @@ ScheduleBot.prototype.onFriendNameChange = function(state)
 
 ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 {
-	console.log("Received message: '" + message + "' from " + this.getUserName(steamId));
+	console.log("Received message: '" + message + "' from " + this.friends.getUserName(steamId));
 	if(message == "")
 		return;
 	var log = this.datastore.getLog(steamId);
@@ -381,6 +400,7 @@ ScheduleBot.prototype.confirmEvent = function(event, scheduledBy)
 
 	if(!scheduledBy.isScheduler(primary.calendarId))
 	{
+		console.log("Confirm primary");
 		//Confirm with primary team
 		primary.schedulers.forEach(function(scheduler)
 		{
@@ -391,16 +411,8 @@ ScheduleBot.prototype.confirmEvent = function(event, scheduledBy)
 					self.datastore,
 					self.sendMessage(scheduler.id),
 					event);
-				confirmation.on("accept", function()
-				{
-					resolve();
-					self.conversations[scheduler.id].resume();
-				})
-				.on("reject", function()
-				{
-					reject();
-					self.conversations[scheduler.id].resume();
-				});
+				confirmation.on("accept", resolve)
+				.on("reject", reject);
 
 				primaryConfirmations.push(confirmation);
 			});
@@ -424,9 +436,15 @@ ScheduleBot.prototype.confirmEvent = function(event, scheduledBy)
 			interrupt(scheduler.id, confirmation);
 		});
 	}
+	else
+	{
+		console.log("Scheduler is primary");
+		primaryPromises.push(Promise.resolve(true));
+	}
 	if(!scheduledBy.isScheduler(event.calendarId))
 	{
 		//Confirm with other team
+		console.log("Confirm other");
 		other.schedulers.forEach(function(scheduler)
 		{
 			if(scheduler.isScheduler(primary.calendarId))
@@ -439,16 +457,8 @@ ScheduleBot.prototype.confirmEvent = function(event, scheduledBy)
 					self.datastore,
 					self.sendMessage(scheduler.id),
 					event);
-				confirmation.on("accept", function()
-				{
-					resolve(true);
-					self.conversations[scheduler.id].resume();
-				})
-				.on("reject", function()
-				{
-					resolve(false);
-					self.conversations[scheduler.id].resume();
-				});
+				confirmation.on("accept", resolve)
+				.on("reject", reject);
 
 				otherConfirmations.push(confirmation);
 			}));
@@ -466,26 +476,65 @@ ScheduleBot.prototype.confirmEvent = function(event, scheduledBy)
 			interrupt(scheduler.id, confirmation);
 		});
 	}
-	return Promise.all([
-		Promise.race(primaryPromises).then(function()
+	else
+	{
+		console.log("Scheduler is other");
+		otherPromises.push(Promise.resolve(true));
+	}
+
+	return new Promise(function(resolve, reject)
+	{
+		Promise.all([
+			Promise.race(primaryPromises).then(function(result)
+			{
+				console.log("Resolve primary", result);
+				//End any other active primary confirmations
+				finish(true);
+				if(result === false)
+				{
+					finish(false);
+					resolve(false);
+				}
+				return result;
+			}, function(err)
+			{
+				console.log("Error primary", err);
+				finish(true);
+				finish(false);
+				reject(err);
+			}),
+			Promise.race(otherPromises).then(function(result)
+			{
+				console.log("Resolve other", result);
+				//End any other active other confirmations
+				finish(false);
+				if(result === false)
+				{
+					finish(true);
+					resovle(false);
+				}
+				return result;
+			}, function(err)
+			{
+				console.log("Error other", err);
+				finish(true);
+				finish(false);
+				reject(err);
+			})
+		]).then(function(result)
 		{
-			//End any other active primary confirmations
+			console.log("Resolve all", result);
+			//End all other confirmations
 			finish(true);
-		}),
-		Promise.race(otherPromises).then(function()
-		{
-			//End any other active other confirmations
 			finish(false);
-		})
-	]).then(function()
-	{
-		//End all other confirmations
-		finish(true);
-		finish(false);
-	}, function(err)
-	{
-		finish(true);
-		finish(false);
+			resolve(result[0] === result[1] === true);
+		}, function(err)
+		{
+			console.log("Error all", err);
+			finish(true);
+			finish(false);
+			reject(err);
+		});
 	});
 }
 
