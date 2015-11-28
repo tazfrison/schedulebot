@@ -245,23 +245,30 @@ Calendar.prototype.setLocation = function(calendarId, location)
 	});
 }
 
-Calendar.prototype.getEvents = function(calendarId)
+Calendar.prototype.getEvents = function(calendarId, min, max)
 {
 	var self = this;
 
 	if(!calendarId)
 		return Promise.reject("No calendar id provided.");
 
+	var params = {
+		auth: this.auth,
+		calendarId: calendarId,
+		timeMin: moment().toISOString(),
+		maxResults: 10,
+		singleEvents: true,
+		orderBy: 'startTime'
+	};
+
+	if(min)
+		params.timeMin = min.toISOString();
+	if(max)
+		params.timeMax = max.toISOString();
+
 	return new Promise(function(resolve, reject)
 	{
-		self.calendar.events.list({
-			auth: self.auth,
-			calendarId: calendarId,
-			timeMin: (new Date()).toISOString(),
-			maxResults: 10,
-			singleEvents: true,
-			orderBy: 'startTime'
-		}, function(err, response)
+		self.calendar.events.list(params, function(err, response)
 		{
 			if (err)
 			{

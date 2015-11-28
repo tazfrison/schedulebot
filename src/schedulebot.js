@@ -1,7 +1,6 @@
 var fs = require("fs");
 var crypto = require("crypto");
 var readline = require("readline");
-var EventEmitter = require("events");
 var util = require("util");
 
 var Steam = require("steam");
@@ -10,6 +9,7 @@ var PlayerConversation = require("./player_conversation.js");
 var SchedulerConversation = require("./scheduler_conversation.js");
 var AdminConversation = require("./admin_conversation.js");
 var Confirmation = require("./confirmation.js");
+var Notifier = require("./notifier.js");
 
 function ScheduleBot(datastore)
 {
@@ -53,9 +53,12 @@ ScheduleBot.prototype.init = function()
 	this.client = new Steam.SteamClient();
 	this.friends = new FriendsWrapper(this.client);
 	this.user = new Steam.SteamUser(this.client);
+	this.notifier = new Notifier(this.datastore);
 	this.me = false;
 
 	this.setupHandlers();
+
+	this.notifier.init();
 
 	this.client.connect();
 }
@@ -74,6 +77,9 @@ ScheduleBot.prototype.setupHandlers = function()
 	this.friends.on("friendMsg", this.onFriendMessage.bind(this));
 	this.friends.on("requestReceived", this.onFriendRequestReceived.bind(this));
 	this.friends.on("nameChange", this.onFriendNameChange.bind(this));
+
+	this.notifier.on("summary", this.onNotifierSummary.bind(this));
+	this.notifier.on("notify", this.onNotifierNotify.bind(this));
 }
 
 ScheduleBot.prototype.loggedOn = function()
@@ -81,6 +87,10 @@ ScheduleBot.prototype.loggedOn = function()
 	var self = this;
 	this.friends.once("ready", function()
 	{
+		self.friends.once(self.client.steamID + ".newData", function(state)
+		{
+			self.me = state;
+		});
 		self.rl.on("line", self.handleCommand.bind(self));
 	});
 }
@@ -134,6 +144,10 @@ ScheduleBot.prototype.handleCommand = function(command)
 			{
 				console.log(times.map(function(time){return time.start.format() + " - " + time.end.format()}));
 			}, console.log);
+	}
+	else if(command === "getsummary")
+	{
+		this.notifier.dailySummary();
 	}
 }
 
@@ -250,6 +264,16 @@ ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 	{
 		console.log(e.message, e.stack);
 	}
+}
+
+ScheduleBot.prototype.onNotifierSummary = function(events)
+{
+	this.notifyTeam(this.datastore.getPrimaryTeam().calendarId, events, "summary");
+}
+
+ScheduleBot.prototype.onNotifierNotify = function(event)
+{
+	this.notifyTeam(this.datastore.getPrimaryTeam().calendarId, event, "reminder");
 }
 
 /* *******************************************
@@ -545,6 +569,8 @@ ScheduleBot.prototype.notifyTeam = function(teamId, event, type)
 	var ids = team.roster.concat(team.schedulers).map(function(person)
 	{
 		return person.id;
+	}).filter(function(item, pos, self) {
+	    return self.indexOf(item) == pos;
 	});
 	var message;
 	if(type === "confirm")
@@ -563,6 +589,17 @@ ScheduleBot.prototype.notifyTeam = function(teamId, event, type)
 		message = event.summary + " on "
 			+ event.start.format("ddd, MMM Do")
 			+ " has been canceled.";
+	}
+	else if(type === "summary")
+	{
+		message = "Upcoming events:\n\t" + event.map(function(event)
+		{
+			return event.start.format("h:mm:ss a") + ": " + event.summary;
+		}).join("\n\t");
+	}
+	else
+	{
+		return;
 	}
 	ids.forEach(function(id)
 	{
@@ -625,7 +662,7 @@ FriendsWrapper.prototype.onPersonaState = function(state)
 	var previousState = this.personaStates[id];
 	if(!previousState)
 	{
-		this.emit(id + ".newData");
+		this.emit(id + ".newData", state);
 		return;
 	}
 	if(previousState.player_name !== state.player_name)

@@ -83,7 +83,7 @@ Datastore.prototype.deleteCalendar = function(calendarId)
 	return this.__calendar.deleteCalendar(calendarId);
 }
 
-Datastore.prototype.getEvents = function(ids)
+Datastore.prototype.getEvents = function(ids, min, max)
 {
 	var self = this;
 	if(!ids || !util.isArray(ids) || ids.length === 0)
@@ -95,7 +95,7 @@ Datastore.prototype.getEvents = function(ids)
 	{
 		Promise.all(ids.map(function(id)
 		{
-			return self.__calendar.getEvents(id);
+			return self.__calendar.getEvents(id, min, max);
 		})).then(function(eventsArr)
 		{
 			resolve([].concat.apply([], eventsArr).sort(function(a, b)
