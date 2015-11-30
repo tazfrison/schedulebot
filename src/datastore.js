@@ -9,11 +9,9 @@ var Calendar = require("./calendar.js");
 var TeamData = require("./teamdata.js");
 
 var resources = path.join(path.dirname(fs.realpathSync(__filename)), "../resources");
-var logs = path.join(resources, "logs");
 
 function Datastore ()
 {
-	this.logfiles = {};
 	this.__teamdata = new TeamData();
 	this.__calendar = new Calendar();
 }
@@ -242,63 +240,6 @@ Datastore.prototype.setTeamLocation = function(id, location)
 Datastore.prototype.saveTeamData = function()
 {
 	return this.__teamdata.save();
-}
-
-/* **********************************
-             CHAT LOGGING
-********************************** */
-
-Datastore.prototype.getLog = function(id)
-{
-	if(!this.logfiles[id])
-		this.logfiles[id] = new Log(id);
-	return this.logfiles[id];
-}
-
-function Log(id)
-{
-	this.path = path.join(logs, id + ".log");
-
-}
-
-function getTimeString()
-{
-	var timestamp = new Date();
-	var temp;
-	var output = "";
-
-	temp = timestamp.getUTCSeconds();
-	output = temp;
-	if(temp < 10)
-		output = "0" + output;
-
-	temp = timestamp.getUTCMinutes();
-	output = temp + ":" + output;
-	if(temp < 10)
-		output = "0" + output;
-
-	temp = timestamp.getUTCHours();
-	if(temp >= 12)
-	{
-		temp -= 12;
-		output += " PM";
-	}
-	else
-		output += " AM";
-	if(temp === 0)
-		temp = 12;
-	output = temp + ":" + output;
-	if(temp < 10)
-		output = "0" + output;
-
-	return output;
-}
-
-Log.prototype.write = function(name, message)
-{
-	var output = "[" + getTimeString() + "] " + name + ": " + message + "\n";
-
-	fs.appendFile(this.path, output);
 }
 
 module.exports = Datastore;

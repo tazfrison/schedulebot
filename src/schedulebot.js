@@ -10,6 +10,7 @@ var SchedulerConversation = require("./scheduler_conversation.js");
 var AdminConversation = require("./admin_conversation.js");
 var Confirmation = require("./confirmation.js");
 var Notifier = require("./notifier.js");
+var FriendsWrapper = require("./friends_wrapper.js");
 
 function ScheduleBot(datastore)
 {
@@ -54,7 +55,6 @@ ScheduleBot.prototype.init = function()
 	this.friends = new FriendsWrapper(this.client);
 	this.user = new Steam.SteamUser(this.client);
 	this.notifier = new Notifier(this.datastore);
-	this.me = false;
 
 	this.setupHandlers();
 
@@ -87,10 +87,6 @@ ScheduleBot.prototype.loggedOn = function()
 	var self = this;
 	this.friends.once("ready", function()
 	{
-		self.friends.once(self.client.steamID + ".newData", function(state)
-		{
-			self.me = state;
-		});
 		self.rl.on("line", self.handleCommand.bind(self));
 	});
 }
@@ -238,11 +234,6 @@ ScheduleBot.prototype.onFriendNameChange = function(state)
 		player.name = state.player_name;
 		this.datastore.saveTeamData();
 	}
-
-	if(state.friendid === this.client.steamID)
-	{
-		this.me = state;
-	}
 }
 
 ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
@@ -250,12 +241,10 @@ ScheduleBot.prototype.onFriendMessage = function(steamId, message, type)
 	console.log("Received message: '" + message + "' from " + this.friends.getUserName(steamId));
 	if(message == "")
 		return;
-	var log = this.datastore.getLog(steamId);
 	if(!this.conversations[steamId])
 	{
 		this.newConversation(steamId);
 	}
-	log.write(this.friends.personaStates[steamId].player_name, message);
 	try
 	{
 		this.conversations[steamId].handleMessage(message);
@@ -283,11 +272,9 @@ ScheduleBot.prototype.onNotifierNotify = function(event)
 ScheduleBot.prototype.sendMessage = function(steamId)
 {
 	var self = this;
-	var log = this.datastore.getLog(steamId);
 	return function(message)
 	{
-		log.write(self.me.player_name, message);
-		self.friends.sendMessage(steamId, message, Steam.EChatEntryType.ChatMsg);
+		self.friends.sendMessage(steamId, message);
 	};
 }
 
@@ -296,7 +283,6 @@ ScheduleBot.prototype.newConversation = function(steamId)
 	var self = this;
 	var player = this.datastore.getPlayer(steamId);
 	var conversationType = false;
-	var log = this.datastore.getLog(steamId);
 	if(player)
 	{
 		if(player.admin)
@@ -309,8 +295,7 @@ ScheduleBot.prototype.newConversation = function(steamId)
 	if(conversationType === false)
 	{
 		var unregistered = "You are unregistered with this bot.  Please contact an admin or your team's scheduler to be added to the bot.";
-		log.write(this.me.player_name, unregistered);
-		this.friends.sendMessage(steamId, unregistered, Steam.EChatEntryType.ChatMsg);
+		this.sendMessage(steamId)(unregistered);
 	}
 	else
 	{
@@ -366,13 +351,67 @@ ScheduleBot.prototype.newConversation = function(steamId)
 	}
 }
 
+ScheduleBot.prototype.notifyTeam = function(teamId, event, type)
+{
+	var self = this;
+	var team = this.datastore.getTeam(teamId);
+	var ids = team.roster.concat(team.schedulers).map(function(person)
+	{
+		return person.id;
+	}).filter(function(item, pos, self) {
+	    return self.indexOf(item) == pos;
+	});
+	var message;
+	if(type === "confirm")
+	{
+		message = event.summary + " scheduled for "
+			+ event.start.format("ddd, MMM Do, h:mm:ss a");
+	}
+	else if(type === "reminder")
+	{
+		message = "Reminder that " + event.summary
+			+ " is " + event.start.toNow()
+			+ " ( " + event.start.format("h:mm:ss a") +" )";
+	}
+	else if(type === "cancel")
+	{
+		message = event.summary + " on "
+			+ event.start.format("ddd, MMM Do")
+			+ " has been canceled.";
+	}
+	else if(type === "summary")
+	{
+		message = "Upcoming events:\n\t" + event.map(function(event)
+		{
+			return event.start.format("h:mm:ss a") + ": " + event.summary;
+		}).join("\n\t");
+	}
+	else
+	{
+		return;
+	}
+	ids.forEach(function(id)
+	{
+		if(!self.conversations[id])
+		{
+			self.newConversation(id);
+		}
+
+		self.conversations[id].interrupt(message);
+	});
+}
+
+/* *******************************************
+			SCHEDULE MODIFICATIONS
+******************************************* */
+
 ScheduleBot.prototype.confirmEvent = function(event, scheduledBy)
 {
 	var self = this;
 	var primary = this.datastore.getPrimaryTeam();
 	if(event.calendarId === primary.calendarId)
 	{
-		return Promise.resolve();
+		return Promise.resolve(true);
 	}
 	var other = this.datastore.getTeam(event.calendarId);
 
@@ -510,41 +549,41 @@ ScheduleBot.prototype.confirmEvent = function(event, scheduledBy)
 	{
 		Promise.all([
 			Promise.race(primaryPromises).then(function(result)
-			{
-				console.log("Resolve primary", result);
-				//End any other active primary confirmations
-				finish(true);
-				if(result === false)
 				{
-					finish(false);
-					resolve(false);
-				}
-				return result;
-			}, function(err)
-			{
-				console.log("Error primary", err);
-				finish(true);
-				finish(false);
-				reject(err);
-			}),
-			Promise.race(otherPromises).then(function(result)
-			{
-				console.log("Resolve other", result);
-				//End any other active other confirmations
-				finish(false);
-				if(result === false)
-				{
+					console.log("Resolve primary", result);
+					//End any other active primary confirmations
 					finish(true);
-					resovle(false);
-				}
-				return result;
-			}, function(err)
-			{
-				console.log("Error other", err);
-				finish(true);
-				finish(false);
-				reject(err);
-			})
+					if(result === false)
+					{
+						finish(false);
+						resolve(false);
+					}
+					return result;
+				}, function(err)
+				{
+					console.log("Error primary", err);
+					finish(true);
+					finish(false);
+					reject(err);
+				}),
+			Promise.race(otherPromises).then(function(result)
+				{
+					console.log("Resolve other", result);
+					//End any other active other confirmations
+					finish(false);
+					if(result === false)
+					{
+						finish(true);
+						resolve(false);
+					}
+					return result;
+				}, function(err)
+				{
+					console.log("Error other", err);
+					finish(true);
+					finish(false);
+					reject(err);
+				})
 		]).then(function(result)
 		{
 			console.log("Resolve all", result);
@@ -562,57 +601,6 @@ ScheduleBot.prototype.confirmEvent = function(event, scheduledBy)
 	});
 }
 
-ScheduleBot.prototype.notifyTeam = function(teamId, event, type)
-{
-	var self = this;
-	var team = this.datastore.getTeam(teamId);
-	var ids = team.roster.concat(team.schedulers).map(function(person)
-	{
-		return person.id;
-	}).filter(function(item, pos, self) {
-	    return self.indexOf(item) == pos;
-	});
-	var message;
-	if(type === "confirm")
-	{
-		message = event.summary + " scheduled for "
-			+ event.start.format("ddd, MMM Do, h:mm:ss a");
-	}
-	else if(type === "reminder")
-	{
-		message = "Reminder that " + event.summary
-			+ " is " + event.start.toNow()
-			+ " ( " + event.start.format("h:mm:ss a") +" )";
-	}
-	else if(type === "cancel")
-	{
-		message = event.summary + " on "
-			+ event.start.format("ddd, MMM Do")
-			+ " has been canceled.";
-	}
-	else if(type === "summary")
-	{
-		message = "Upcoming events:\n\t" + event.map(function(event)
-		{
-			return event.start.format("h:mm:ss a") + ": " + event.summary;
-		}).join("\n\t");
-	}
-	else
-	{
-		return;
-	}
-	ids.forEach(function(id)
-	{
-		var log = self.datastore.getLog(id);
-		if(!self.conversations[id])
-		{
-			self.newConversation(id);
-		}
-
-		self.conversations[id].interrupt(message);
-	});
-}
-
 ScheduleBot.prototype.updateEvent = function(event)
 {
 	console.log("Creating event");
@@ -624,71 +612,6 @@ ScheduleBot.prototype.updateEvent = function(event)
 			this.notifyTeam(event.scheduleId, event, "confirm");
 		this.notifyTeam(primaryId, event, "confirm");
 	});
-}
-
-function FriendsWrapper(client)
-{
-	Steam.SteamFriends.apply(this, arguments);
-
-	var self = this;
-	this.once("relationships", function()
-	{
-		Object.keys(self.friends).forEach(function(id)
-		{
-			self.onFriend(id, self.friends[id]);
-		});
-		self.setPersonaState(Steam.EPersonaState.Online);
-		self.emit("ready");
-	});
-}
-
-util.inherits(FriendsWrapper, Steam.SteamFriends);
-
-FriendsWrapper.prototype.setupHandlers = function()
-{
-	this.on("friend", this.onFriend.bind(this));
-	this.on("personaState", this.onPersonaState.bind(this));
-}
-
-FriendsWrapper.prototype.onFriend = function(id, relationship)
-{
-	if(relationship === Steam.EFriendRelationship.RequestRecipient)
-		this.emit("requestReceived", id);
-}
-
-FriendsWrapper.prototype.onPersonaState = function(state)
-{
-	var id = state.friendid;
-	var previousState = this.personaStates[id];
-	if(!previousState)
-	{
-		this.emit(id + ".newData", state);
-		return;
-	}
-	if(previousState.player_name !== state.player_name)
-		this.emit("nameChange", state);
-	if(previousState.persona_state !== state.persona_state)
-	{
-		if(previousState.persona_state === Steam.EPersonaState.Offline)
-			this.emit(id + ".online", state);
-		else if(state.persona_state === Steam.EPersonaState.Offline)
-			this.emit(id + ".offline", state);
-	}
-}
-
-FriendsWrapper.prototype.getStatus = function(steamId)
-{
-	if(!this.personaStates[steamId])
-		return Steam.EPersonaState.Offline;
-	else
-		return this.personaStates[steamId].persona_state;
-}
-
-FriendsWrapper.prototype.getUserName = function(id)
-{
-	return (this.personaStates && id in this.personaStates)
-		? (this.personaStates[id].player_name)
-		: "";
 }
 
 module.exports = ScheduleBot;

@@ -10,7 +10,6 @@ function Conversation (id, datastore, sendMessage)
 	this.player = datastore.getPlayer(id);
 	this.chatid = id;
 	this.datastore = datastore;
-	this.log = this.datastore.getLog(this.chatid);
 
 	this.sendMessage = sendMessage;
 
