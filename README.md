@@ -10,16 +10,8 @@ A Node.js script to interface with Steam and Google Calendar for the purpose of 
 * Python (High version 2s)
 
 ### Git
-* Clone the repository
-* NPM install at package root
-* Watch node-gyp fail
-* Cry
 
 ### Zip
-* Download zip
-* NPM install at package root
-* Watch node-gyp fail
-* Cry
 
 ## Getting Started
 Eventually there will be a quickstart script that will walk you through initial setup.  Here's how it'll work:
